@@ -159,7 +159,7 @@ streamlit run main.py
 ### FAUST DSP Development
 
 1. **Create a new .dsp file** 
-2. **Ask Code Llama**: "Create a stereo reverb effect with adjustable room size"
+2. **Ask Qwen2.5-Coder**: "Create a stereo reverb effect with adjustable room size"
 3. **Review the FAUST code** with syntax highlighting
 4. **Iterate with AI** to refine the algorithm
 5. **Save and test** your DSP code
@@ -200,7 +200,7 @@ streamlit run main.py
 ### Specialized Features for Audio DSP
 
 1. **FAUST Documentation**: Load complete FAUST library documentation
-2. **Code Llama Specialist**: Trained specifically for FAUST syntax and DSP concepts
+2. **Qwen2.5-Coder**: Code implementation with FAUST documentation context
 3. **Quick Actions**: Pre-built prompts for common FAUST patterns:
    - Basic oscillators
    - Filter designs  

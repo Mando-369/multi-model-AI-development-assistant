@@ -145,7 +145,7 @@ def main():
 ## 💬 **AI Chat Tab**
 - **Multi-model conversations** with DeepSeek-R1, Qwen2.5-Coder, and Qwen2.5
 - **Project-based chat history** and context
-- **Quick FAUST actions** for audio DSP development
+- **HRM-powered intelligent routing** for optimal model selection
 
 ## 📝 **Code Editor Tab**
 - **File browser** with project organization
@@ -156,7 +156,7 @@ def main():
 
 ## 📚 **Knowledge Base Tab**
 - **File upload and organization** by category
-- **FAUST documentation integration**
+- **FAUST, JUCE, and Python documentation** integration
 - **Bulk file processing** and statistics
 
 ## 🔧 **Key Editor Features**
@@ -176,7 +176,7 @@ def main():
 7. **Use AI Chat** for questions about your code
 
 ## 🎵 **FAUST Development**
-- **Specialized Code Llama model** for FAUST DSP programming
+- **Qwen2.5-Coder model** with FAUST documentation context
 - **FAUST documentation** integrated into knowledge base
 - **Audio effect templates** and examples
 - **Real-time code suggestions** for signal processing

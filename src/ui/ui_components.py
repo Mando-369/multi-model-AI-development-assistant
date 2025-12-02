@@ -749,7 +749,7 @@ def render_chat_input(
 
         Press Enter for new lines, use the Send button when ready.""",
             key="main_chat_input",
-            height=120,
+            height=350,
             help="Multi-line input supported - great for code snippets and detailed questions!",
         )
 
