@@ -122,7 +122,7 @@ def test_multimodel_integration():
         # Get decomposition directly from wrapper
         context_info = {
             'project': 'test_project',
-            'model': 'GLM-Z1 (Reasoning & General)',
+            'model': 'DeepSeek-R1 (Reasoning)',
             'use_context': True
         }
         

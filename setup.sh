@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# GLM-Z1 Multi-Model AI Development Assistant
-# Quick Setup Script for macOS (Apple Silicon)
+# Multi-Model AI Development Assistant
+# Quick Setup Script for macOS (Apple Silicon M4 Max)
 
 set -e  # Exit on error
 
@@ -42,7 +42,7 @@ check_command() {
 }
 
 # Main setup
-print_header "GLM-Z1 Multi-Model AI Development Assistant Setup"
+print_header "Multi-Model AI Development Assistant Setup"
 
 # Check system
 print_header "Checking System Requirements"
@@ -99,7 +99,7 @@ fi
 # Pull required models
 print_header "Downloading AI Models (this may take a while)"
 
-models=("JollyLlama/GLM-Z1-32B-0414-Q4_K_M:latest" "codellama:13b" "deepseek-coder:6.7b" "nomic-embed-text")
+models=("deepseek-r1:70b" "qwen2.5-coder:32b" "qwen2.5:32b" "nomic-embed-text")
 for model in "${models[@]}"; do
     echo -e "\n${YELLOW}Pulling $model...${NC}"
     if ollama list | grep -q "$model"; then
@@ -211,20 +211,23 @@ rm init_chromadb.py
 print_header "Creating Configuration"
 if [ ! -f "config.yaml" ]; then
     cat > config.yaml << 'EOF'
-# GLM-Z1 Configuration
+# Multi-Model AI Assistant Configuration
 models:
-  glm_z1:
+  deepseek_r1:
+    temperature: 0.6
+    top_p: 0.95
+    max_tokens: 32768
+    timeout: 120
+  qwen_coder:
     temperature: 0.7
-    max_tokens: 4096
-    timeout: 60
-  code_llama:
-    temperature: 0.5
+    top_p: 0.8
     max_tokens: 8192
-    timeout: 45
-  deepseek:
-    temperature: 0.3
-    max_tokens: 4096
-    timeout: 30
+    timeout: 90
+  qwen_math:
+    temperature: 0.6
+    top_p: 0.95
+    max_tokens: 8192
+    timeout: 60
 
 hrm:
   complexity_threshold: 0.6
@@ -286,7 +289,7 @@ if ! pgrep -x "ollama" > /dev/null; then
 fi
 
 # Run Streamlit app
-echo "Starting GLM-Z1 Assistant..."
+echo "Starting Multi-Model AI Assistant..."
 echo "Opening browser at http://localhost:8501"
 streamlit run main.py
 EOF
@@ -297,7 +300,7 @@ print_success "Run script created"
 # Final message
 print_header "Setup Complete! 🎉"
 
-echo -e "${GREEN}GLM-Z1 Multi-Model AI Development Assistant is ready!${NC}\n"
+echo -e "${GREEN}Multi-Model AI Development Assistant is ready!${NC}\n"
 echo "To start the application:"
 echo -e "  ${BLUE}./run.sh${NC}"
 echo ""

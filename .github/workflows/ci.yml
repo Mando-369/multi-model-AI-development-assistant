@@ -144,8 +144,8 @@ jobs:
         context: .
         push: true
         tags: |
-          ${{ secrets.DOCKER_USERNAME }}/glm-z1-assistant:latest
-          ${{ secrets.DOCKER_USERNAME }}/glm-z1-assistant:${{ github.sha }}
+          ${{ secrets.DOCKER_USERNAME }}/multi-model-ai-assistant:latest
+          ${{ secrets.DOCKER_USERNAME }}/multi-model-ai-assistant:${{ github.sha }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
@@ -205,5 +205,5 @@ jobs:
       with:
         upload_url: ${{ github.event.release.upload_url }}
         asset_path: ./dist/
-        asset_name: glm-z1-assistant-${{ github.event.release.tag_name }}.tar.gz
+        asset_name: multi-model-ai-assistant-${{ github.event.release.tag_name }}.tar.gz
         asset_content_type: application/gzip

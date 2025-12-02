@@ -1,1 +1,1 @@
-# Test suite for GLM-Z1 Coding Assistant
+# Test suite for Multi-Model AI Development Assistant

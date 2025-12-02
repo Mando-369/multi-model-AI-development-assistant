@@ -1,1 +1,1 @@
-"""Source code for GLM-Z1 Coding Assistant"""
+"""Source code for Multi-Model AI Development Assistant"""

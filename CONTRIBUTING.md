@@ -1,8 +1,8 @@
-# Contributing to GLM-Z1 Multi-Model AI Development Assistant
+# Contributing to Multi-Model AI Development Assistant
 
 Thank you for your interest in contributing to our project! This document provides guidelines and instructions for contributing.
 
-## 🤝 Code of Conduct
+## Code of Conduct
 
 By participating in this project, you agree to abide by our Code of Conduct:
 - Be respectful and inclusive
@@ -10,14 +10,14 @@ By participating in this project, you agree to abide by our Code of Conduct:
 - Focus on constructive criticism
 - Respect differing viewpoints and experiences
 
-## 🚀 Getting Started
+## Getting Started
 
 ### 1. Fork and Clone
 ```bash
 # Fork the repository on GitHub, then:
-git clone https://github.com/YOUR-USERNAME/glm_z1_project.git
-cd glm_z1_project
-git remote add upstream https://github.com/Mando-369/glm_z1_project.git
+git clone https://github.com/YOUR-USERNAME/multi-model-AI-development-assistant.git
+cd multi-model-AI-development-assistant
+git remote add upstream https://github.com/Mando-369/multi-model-AI-development-assistant.git
 ```
 
 ### 2. Set Up Development Environment
@@ -304,4 +304,4 @@ By contributing, you agree that your contributions will be licensed under the MI
 
 ---
 
-Thank you for contributing to GLM-Z1 Multi-Model AI Development Assistant! 🎉
+Thank you for contributing to Multi-Model AI Development Assistant!

@@ -1,10 +1,10 @@
-# Coding Assistant Project
+# Multi-Model AI Development Assistant
 
 ## Tech Stack
-- GLM-Z1 32B (reasoning)
-- CodeLlama (FAUST specialist)  
-- DeepSeek Code (fast coding)
-- HRM (hierarchical reasoning)
+- DeepSeek-R1:70B (reasoning/debugging)
+- Qwen2.5-Coder:32B (implementation)
+- Qwen2.5:32B (math/physics)
+- HRM (hierarchical reasoning orchestration)
 - ChromaDB (knowledge base)
 
 ## Architecture
@@ -14,6 +14,6 @@
 - FAUST/JUCE documentation integration
 
 ## Rules
-# always test before returning
-# use descriptive variable names
-# prefer functional programming patterns
+- always test before returning
+- use descriptive variable names
+- prefer functional programming patterns

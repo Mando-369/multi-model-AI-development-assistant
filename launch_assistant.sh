@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🚀 Launching Autonomous FAUST/JUCE Coding Assistant on M4 Max"
+echo "Launching Multi-Model AI Development Assistant on M4 Max"
 echo "=================================================="
 
 # Step 1: Check and start Ollama service
@@ -16,7 +16,7 @@ fi
 # Step 2: Pull/verify models (don't run them - just ensure they're available)
 echo ""
 echo "📦 Verifying models..."
-models=("JollyLlama/GLM-Z1-32B-0414-Q4_K_M:latest" "codellama:13b" "deepseek-coder:6.7b")
+models=("deepseek-r1:70b" "qwen2.5-coder:32b" "qwen2.5:32b" "nomic-embed-text")
 for model in "${models[@]}"; do
     if ollama list | grep -q "$model"; then
         echo "✅ $model ready"

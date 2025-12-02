@@ -8,10 +8,10 @@ class UnifiedCodingAssistant:
         # HRM for hierarchical reasoning
         self.hrm = HRMOrchestrator()
 
-        # Your existing models via Ollama
-        self.glm_z1 = "JollyLlama/GLM-Z1-32B-0414-Q4_K_M:latest"
-        self.codellama = "codellama:latest"
-        self.deepseek = "deepseek-coder:latest"
+        # Models via Ollama
+        self.deepseek_r1 = "deepseek-r1:70b"
+        self.qwen_coder = "qwen2.5-coder:32b"
+        self.qwen_math = "qwen2.5:32b"
 
         # Knowledge base
         self.chromadb = Client()
@@ -37,16 +37,16 @@ class UnifiedCodingAssistant:
         results = []
         for subtask in plan.subtasks:
             if subtask.requires_deep_reasoning:
-                # Use GLM-Z1 for rumination
-                result = ollama.generate(model=self.glm_z1, prompt=subtask.prompt)
+                # Use DeepSeek-R1 for reasoning
+                result = ollama.generate(model=self.deepseek_r1, prompt=subtask.prompt)
             elif subtask.is_faust_code:
-                # Use CodeLlama with FAUST context
+                # Use Qwen2.5-Coder with FAUST context
                 context = self.faust_collection.query(subtask.query)
                 result = ollama.generate(
-                    model=self.codellama, prompt=f"{context}\n{subtask.prompt}"
+                    model=self.qwen_coder, prompt=f"{context}\n{subtask.prompt}"
                 )
             else:
-                # Use DeepSeek for general coding
-                result = ollama.generate(model=self.deepseek, prompt=subtask.prompt)
+                # Use Qwen2.5-Coder for general coding
+                result = ollama.generate(model=self.qwen_coder, prompt=subtask.prompt)
             results.append(result)
         return results

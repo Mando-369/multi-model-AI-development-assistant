@@ -4,22 +4,24 @@
 
 The HRM Local Wrapper provides **offline hierarchical task decomposition** for complex FAUST and JUCE audio development workflows. It integrates seamlessly with the existing MultiModelGLMSystem and Streamlit interface while working entirely locally on your M4 Max.
 
+Based on the [Hierarchical Reasoning Model](https://github.com/sapientinc/HRM) - a 27M parameter recurrent architecture that executes reasoning in a single forward pass without explicit supervision.
+
 ## Key Features
 
-### 🧠 **Hierarchical Reasoning**
+### Hierarchical Reasoning
 - **Smart Task Decomposition**: Breaks complex queries into manageable subtasks
 - **Domain Expertise**: Specialized handling for FAUST DSP and JUCE audio development
 - **Dependency Management**: Intelligent ordering of subtasks with proper dependencies
 
-### ⚡ **M4 Max Optimization**
+### M4 Max Optimization
 - **MPS Acceleration**: Automatic detection and use of Metal Performance Shaders
 - **Local Processing**: 100% offline operation, no external API calls
 - **Efficient Caching**: Results cached for repeated queries
 
-### 🎯 **Model Routing**
-- **GLM-Z1**: Complex reasoning, architecture decisions, planning
-- **Code Llama**: FAUST specialist for DSP algorithms and syntax
-- **DeepSeek Coder**: Fast C++/Python optimization and JUCE implementation
+### Model Routing
+- **DeepSeek-R1:70B**: Complex reasoning, architecture decisions, debugging
+- **Qwen2.5-Coder:32B**: FAUST/JUCE implementation, C++/Python code
+- **Qwen2.5:32B**: Math/physics calculations, DSP algorithm derivation
 
 ## File Structure
 
@@ -62,7 +64,7 @@ glm_system = MultiModelGLMSystem()
 # Use enhanced chat with HRM decomposition
 response = glm_system.chat_with_model_enhanced(
     question=\"Create a complete guitar effects processor\",
-    model_name=\"GLM-Z1 (Reasoning & General)\",
+    model_name=\"DeepSeek-R1 (Reasoning)\",
     use_hrm_decomposition=True
 )
 ```
@@ -87,7 +89,7 @@ The HRM integration is automatically available in the Streamlit app:
 #### FAUST Tasks
 - **Keywords**: faust, dsp, audio effect, oscillator, filter, synthesis
 - **Subtasks**: Algorithm design → Implementation → Testing
-- **Models**: Code Llama specialist with FAUST documentation
+- **Models**: Qwen2.5-Coder with FAUST documentation
 
 #### JUCE Tasks  
 - **Keywords**: juce, audio plugin, vst, processor, gui, component
@@ -103,18 +105,18 @@ The HRM integration is automatically available in the Streamlit app:
 ### Simple Query
 ```
 \"Create a basic sine oscillator in FAUST\"
-→ Single subtask (Code Llama specialist)
+→ Single subtask (Qwen2.5-Coder)
 ```
 
 ### Complex Query
 ```
 \"Build a modular synthesis engine with FAUST and JUCE GUI\"
 
-→ Subtask 1: System architecture design (GLM-Z1)
-→ Subtask 2: FAUST oscillator modules (Code Llama)  
-→ Subtask 3: FAUST filter modules (Code Llama)
-→ Subtask 4: JUCE GUI framework (DeepSeek Coder)
-→ Subtask 5: Integration and testing (DeepSeek Coder)
+→ Subtask 1: System architecture design (DeepSeek-R1)
+→ Subtask 2: FAUST oscillator modules (Qwen2.5-Coder)
+→ Subtask 3: FAUST filter modules (Qwen2.5-Coder)
+→ Subtask 4: JUCE GUI framework (Qwen2.5-Coder)
+→ Subtask 5: Integration and testing (Qwen2.5-Coder)
 
 Execution: Sequential with dependencies
 ```
@@ -148,13 +150,15 @@ The wrapper automatically selects optimal models:
 
 ```python
 model_preferences = {
-    'faust': 'Code Llama (FAUST Specialist)',
-    'juce': 'DeepSeek Coder (Fast DSP)',
-    'cpp': 'DeepSeek Coder (Fast DSP)',
-    'python': 'DeepSeek Coder (Fast DSP)',
-    'analysis': 'GLM-Z1 (Reasoning & General)',
-    'architecture': 'GLM-Z1 (Reasoning & General)',
-    'planning': 'GLM-Z1 (Reasoning & General)'
+    'faust': 'Qwen2.5-Coder (Implementation)',
+    'juce': 'Qwen2.5-Coder (Implementation)',
+    'cpp': 'Qwen2.5-Coder (Implementation)',
+    'python': 'Qwen2.5-Coder (Implementation)',
+    'analysis': 'DeepSeek-R1 (Reasoning)',
+    'architecture': 'DeepSeek-R1 (Reasoning)',
+    'planning': 'DeepSeek-R1 (Reasoning)',
+    'math': 'Qwen2.5 (Math/Physics)',
+    'physics': 'Qwen2.5 (Math/Physics)'
 }
 ```
 
@@ -315,10 +319,11 @@ The HRM wrapper is designed to be extensible:
 
 ## License
 
-This integration maintains the same license as the parent GLM Z1 project.
+This integration maintains the same license as the parent project.
 
 ---
 
-**Status**: ✅ Production Ready  
-**Device**: 🚀 M4 Max Optimized  
-**Operation**: 🔒 100% Offline
+**Status**: Production Ready
+**Device**: M4 Max Optimized (MPS)
+**Operation**: 100% Offline
+**HRM Repo**: [github.com/sapientinc/HRM](https://github.com/sapientinc/HRM)

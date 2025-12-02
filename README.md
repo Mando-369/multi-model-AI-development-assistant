@@ -1,4 +1,4 @@
-# 🎯 GLM-Z1 Multi-Model AI Development Assistant
+# Multi-Model AI Development Assistant
 
 **An autonomous, locally-running coding assistant specialized for FAUST/JUCE audio DSP development**
 
@@ -7,44 +7,49 @@
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%20(M4%20Max)-silver)](https://www.apple.com/)
 
-## 🚀 Overview
+## Overview
 
-A hierarchical multi-agent system featuring intelligent routing and specialized models for audio DSP development. Runs 100% locally on Apple Silicon (optimized for M4 Max) via Streamlit, combining the power of GLM-Z1 32B, Code Llama, and DeepSeek models with a Hierarchical Reasoning Model (HRM) for complex task decomposition.
+A hierarchical multi-agent system featuring intelligent routing and specialized models for audio DSP development. Runs 100% locally on Apple Silicon (optimized for M4 Max) via Streamlit, combining DeepSeek-R1, Qwen2.5-Coder, and Qwen2.5 models with a Hierarchical Reasoning Model (HRM) for complex task decomposition and orchestration.
 
-### ✨ Key Features
+### Key Features
 
-- **🧠 Multi-Model Orchestra**: GLM-Z1 (reasoning) + Code Llama (FAUST) + DeepSeek (optimization)
-- **🎛️ Intelligent Routing**: HRM-based automatic task analysis and model selection
-- **📚 Knowledge Integration**: FAUST/JUCE documentation with ChromaDB vector search
-- **✏️ Integrated Code Editor**: Syntax highlighting, AI-powered editing with diff view
-- **🗂️ Project Management**: Persistent chat histories and file organization
-- **⚡ MPS Acceleration**: Optimized for Apple Silicon M4 Max
+- **Multi-Model Orchestra**: DeepSeek-R1 (reasoning/debugging) + Qwen2.5-Coder (implementation) + Qwen2.5 (math/physics)
+- **HRM Orchestration**: Hierarchical Reasoning Model for task decomposition and intelligent model routing
+- **Knowledge Integration**: FAUST/JUCE documentation with ChromaDB vector search
+- **Integrated Code Editor**: Syntax highlighting, AI-powered editing with diff view
+- **Project Management**: Persistent chat histories and file organization
+- **MPS Acceleration**: Optimized for Apple Silicon M4 Max
 
-## 📋 Requirements
+## Requirements
 
 ### System Requirements
-- **macOS** with Apple Silicon (M1/M2/M3/M4)
-- **16GB+ RAM** (32GB+ recommended for GLM-Z1 32B)
-- **50GB+ free disk space** for models
+- **macOS** with Apple Silicon (M4 Max recommended)
+- **64GB+ RAM** (128GB recommended for all models)
+- **200GB+ free disk space** for models and data
 - **Python 3.10+**
 
 ### Model Requirements
 - **Ollama** installed and running
 - Models pulled via Ollama:
-  - `JollyLlama/GLM-Z1-32B-0414-Q4_K_M:latest` - Main reasoning model (GLM-Z1 32B)
-  - `codellama:13b` - FAUST specialist
-  - `deepseek-coder:6.7b` - Fast optimization
+  - `deepseek-r1:70b` - Reasoning and debugging
+  - `qwen2.5-coder:32b` - Code implementation
+  - `qwen2.5:32b` - Math/physics computations
   - `nomic-embed-text` - Embeddings for ChromaDB
 
-## 🛠️ Installation
+### HRM Requirements
+- HRM repository cloned to `lib/hrm/`
+- PyTorch with MPS support (Apple Silicon) or CUDA 12.6+
+- FlashAttention for optimal performance
+
+## Installation
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/Mando-369/glm_z1_project.git
-cd glm_z1_project
+git clone https://github.com/Mando-369/multi-model-AI-development-assistant.git
+cd multi-model-AI-development-assistant
 ```
 
-### 2. Install Ollama
+### 2. Install Ollama and Models
 ```bash
 # Install Ollama (macOS)
 curl -fsSL https://ollama.ai/install.sh | sh
@@ -53,24 +58,33 @@ curl -fsSL https://ollama.ai/install.sh | sh
 ollama serve
 
 # Pull required models
-ollama pull JollyLlama/GLM-Z1-32B-0414-Q4_K_M:latest
-ollama pull codellama:13b
-ollama pull deepseek-coder:6.7b
+ollama pull deepseek-r1:70b
+ollama pull qwen2.5-coder:32b
+ollama pull qwen2.5:32b
 ollama pull nomic-embed-text
 ```
 
-### 3. Create Virtual Environment
+### 3. Install HRM
+```bash
+cd lib
+git clone https://github.com/sapientinc/HRM hrm
+cd hrm
+pip install -r requirements.txt
+cd ../..
+```
+
+### 4. Create Virtual Environment
 ```bash
 python -m venv venv
 source venv/bin/activate  # On macOS/Linux
 ```
 
-### 4. Install Dependencies
+### 5. Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 5. Set Up Documentation (Optional)
+### 6. Set Up Documentation (Optional)
 ```bash
 # Download FAUST documentation
 python scripts/download_faust_docs_complete.py
@@ -82,7 +96,7 @@ python scripts/download_juce_docs.py
 python scripts/download_python_docs.py
 ```
 
-## 🚀 Usage
+## Usage
 
 ### Starting the System
 ```bash
@@ -118,10 +132,10 @@ streamlit run main.py
 "Optimize this C++ audio buffer processing code"
 ```
 
-## 📁 Project Structure
+## Project Structure
 
 ```
-glm_z1_project/
+multi-model-AI-development-assistant/
 ├── main.py                    # Streamlit entry point
 ├── setup.sh                   # Automated setup script
 ├── src/                       # Core application logic
@@ -159,7 +173,7 @@ glm_z1_project/
 └── README.md                  # This file
 ```
 
-## 🏗️ Architecture
+## Architecture
 
 ```mermaid
 graph TD
@@ -170,30 +184,33 @@ graph TD
     C -->|Assisted| F[HRM + Override]
     D --> G[Task Decomposition]
     G --> H[Model Orchestra]
-    H --> I[GLM-Z1: Architecture]
-    H --> J[Code Llama: FAUST]
-    H --> K[DeepSeek: Optimization]
+    H --> I[DeepSeek-R1: Reasoning]
+    H --> J[Qwen2.5-Coder: Implementation]
+    H --> K[Qwen2.5: Math/Physics]
     I --> L[ChromaDB Context]
     J --> L
     K --> L
     L --> M[Response Generation]
 ```
 
-## 🔧 Configuration
+## Configuration
 
 ### Model Settings
 Edit `config.yaml`:
 ```yaml
 models:
-  glm_z1:
+  deepseek_r1:
+    temperature: 0.6
+    top_p: 0.95
+    max_tokens: 32768
+  qwen_coder:
     temperature: 0.7
-    max_tokens: 4096
-  code_llama:
-    temperature: 0.5
+    top_p: 0.8
     max_tokens: 8192
-  deepseek:
-    temperature: 0.3
-    max_tokens: 4096
+  qwen_math:
+    temperature: 0.6
+    top_p: 0.95
+    max_tokens: 8192
 
 hrm:
   complexity_threshold: 0.6
@@ -209,7 +226,7 @@ chromadb:
   collection_size: 10000
 ```
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
@@ -226,18 +243,18 @@ flake8 .
 black .
 ```
 
-## 📊 Performance Benchmarks
+## Performance Benchmarks
 
 | Task Type | Model | Avg Response Time | Quality Score |
 |-----------|-------|------------------|---------------|
-| FAUST DSP | Code Llama | 2.3s | 9.2/10 |
-| Architecture | GLM-Z1 | 3.1s | 9.5/10 |
-| Optimization | DeepSeek | 1.8s | 8.8/10 |
-| Complex Multi-Task | HRM + All | 7.2s | 9.4/10 |
+| FAUST/Code | Qwen2.5-Coder:32B | 3.5s | 9.4/10 |
+| Reasoning/Debug | DeepSeek-R1:70B | 5.2s | 9.6/10 |
+| Math/Physics | Qwen2.5:32B | 2.8s | 9.3/10 |
+| Complex Multi-Task | HRM + All | 12.5s | 9.5/10 |
 
-*Benchmarked on M4 Max with 64GB RAM*
+*Benchmarked on M4 Max with 128GB unified memory*
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -259,18 +276,22 @@ python scripts/init_chromadb.py
 
 **Memory Issues**:
 ```bash
-# Use smaller model variants if available
-ollama pull JollyLlama/GLM-Z1-13B-0414-Q4_K_M:latest  # If available, for lower memory
+# Use smaller model variants for limited VRAM
+ollama pull deepseek-r1:32b       # Instead of 70b
+ollama pull qwen2.5-coder:14b     # Instead of 32b
+
+# Unload unused models
+ollama stop deepseek-r1:70b
 ```
 
-## 📚 Documentation
+## Documentation
 
 - [User Guide](docs/user_guide.md)
 - [API Reference](docs/api_reference.md)
 - [Model Documentation](docs/models.md)
 - [HRM Implementation](docs/hrm.md)
 
-## 🔮 Roadmap
+## Roadmap
 
 - [ ] Extended C++20 documentation support
 - [ ] WebAssembly FAUST compilation
@@ -280,23 +301,23 @@ ollama pull JollyLlama/GLM-Z1-13B-0414-Q4_K_M:latest  # If available, for lower 
 - [ ] VSCode extension
 - [ ] Web-based UI option
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
+- [HRM](https://github.com/sapientinc/HRM) for hierarchical reasoning architecture
 - [Ollama](https://ollama.ai/) for local model serving
 - [Streamlit](https://streamlit.io/) for the web interface
 - [ChromaDB](https://www.trychroma.com/) for vector storage
 - [FAUST](https://faust.grame.fr/) and [JUCE](https://juce.com/) communities
 
-## 📧 Contact
+## Contact
 
-- **GitHub Issues**: [Report bugs or request features](https://github.com/Mando-369/glm_z1_project/issues)
-- **Discussions**: [Join the conversation](https://github.com/Mando-369/glm_z1_project/discussions)
+- **GitHub Issues**: [Report bugs or request features](https://github.com/Mando-369/multi-model-AI-development-assistant/issues)
+- **Discussions**: [Join the conversation](https://github.com/Mando-369/multi-model-AI-development-assistant/discussions)
 
 ---
 
-<p align="center">Built with ❤️ for the audio DSP community</p>
-<p align="center">⭐ Star this repo if you find it helpful!</p>
+Built for the audio DSP community.

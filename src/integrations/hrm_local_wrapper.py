@@ -83,13 +83,15 @@ class HRMLocalWrapper:
         
         # Model preferences for different task types
         self.model_preferences = {
-            'faust': 'Code Llama (FAUST Specialist)',
-            'juce': 'DeepSeek Coder (Fast DSP)',
-            'cpp': 'DeepSeek Coder (Fast DSP)', 
-            'python': 'DeepSeek Coder (Fast DSP)',
-            'analysis': 'GLM-Z1 (Reasoning & General)',
-            'architecture': 'GLM-Z1 (Reasoning & General)',
-            'planning': 'GLM-Z1 (Reasoning & General)'
+            'faust': 'Qwen2.5-Coder (Implementation)',
+            'juce': 'Qwen2.5-Coder (Implementation)',
+            'cpp': 'Qwen2.5-Coder (Implementation)',
+            'python': 'Qwen2.5-Coder (Implementation)',
+            'analysis': 'DeepSeek-R1 (Reasoning)',
+            'architecture': 'DeepSeek-R1 (Reasoning)',
+            'planning': 'DeepSeek-R1 (Reasoning)',
+            'math': 'Qwen2.5 (Math/Physics)',
+            'physics': 'Qwen2.5 (Math/Physics)'
         }
         
         # Initialize HRM model
@@ -592,7 +594,7 @@ class HRMLocalWrapper:
                     task_type="general",
                     complexity=5,
                     priority=1,
-                    model_preference="GLM-Z1 (Reasoning & General)",
+                    model_preference="DeepSeek-R1 (Reasoning)",
                     estimated_tokens=500,
                     domain_expertise_required=False
                 )

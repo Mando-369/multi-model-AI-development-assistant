@@ -17,11 +17,11 @@ from ..integrations.hrm_local_wrapper import HRMLocalWrapper, HRMDecomposition, 
 
 class MultiModelGLMSystem:
     def __init__(self):
-        # Initialize models - FIXED MODEL NAMES TO MATCH YOUR INSTALLED MODELS
+        # Initialize models - Updated model configuration
         self.models = {
-            "GLM-Z1 (Reasoning & General)": "JollyLlama/GLM-Z1-32B-0414-Q4_K_M:latest",
-            "Code Llama (FAUST Specialist)": "codellama:13b",
-            "DeepSeek Coder (Fast DSP)": "deepseek-coder:6.7b",
+            "DeepSeek-R1 (Reasoning)": "deepseek-r1:70b",
+            "Qwen2.5-Coder (Implementation)": "qwen2.5-coder:32b",
+            "Qwen2.5 (Math/Physics)": "qwen2.5:32b",
         }
 
         # Cache for model instances
@@ -82,8 +82,8 @@ class MultiModelGLMSystem:
                     r"(anti.alias|band.limit|polyblep|wavetable|granular)",
                     r"(adsr|envelope|lfo|modulation|vibrato|tremolo)"
                 ],
-                "primary_model": "Code Llama (FAUST Specialist)",
-                "secondary_model": "GLM-Z1 (Reasoning & General)",
+                "primary_model": "Qwen2.5-Coder (Implementation)",
+                "secondary_model": "DeepSeek-R1 (Reasoning)",
                 "confidence_threshold": 0.8,
                 "complexity_threshold": 6
             },
@@ -95,8 +95,8 @@ class MultiModelGLMSystem:
                     r"(multi.model|orchestration|routing|dispatch)",
                     r"(thread.safe|lock.free|concurrent|parallel)"
                 ],
-                "primary_model": "GLM-Z1 (Reasoning & General)",
-                "secondary_model": "DeepSeek Coder (Fast DSP)",
+                "primary_model": "DeepSeek-R1 (Reasoning)",
+                "secondary_model": "Qwen2.5-Coder (Implementation)",
                 "confidence_threshold": 0.75,
                 "complexity_threshold": 7
             },
@@ -107,8 +107,8 @@ class MultiModelGLMSystem:
                     r"(gui|editor|component|look.and.feel|animation)",
                     r"(real.time|callback|thread.safety|memory.pool)"
                 ],
-                "primary_model": "DeepSeek Coder (Fast DSP)",
-                "secondary_model": "GLM-Z1 (Reasoning & General)",
+                "primary_model": "Qwen2.5-Coder (Implementation)",
+                "secondary_model": "DeepSeek-R1 (Reasoning)",
                 "confidence_threshold": 0.8,
                 "complexity_threshold": 6
             },
@@ -120,9 +120,22 @@ class MultiModelGLMSystem:
                     r"(profile|benchmark|measure|latency|throughput)",
                     r"(c\+\+20|c\+\+23|concepts|ranges|coroutines)"
                 ],
-                "primary_model": "DeepSeek Coder (Fast DSP)",
-                "secondary_model": "GLM-Z1 (Reasoning & General)",
+                "primary_model": "Qwen2.5-Coder (Implementation)",
+                "secondary_model": "DeepSeek-R1 (Reasoning)",
                 "confidence_threshold": 0.7,
+                "complexity_threshold": 5
+            },
+            "math_physics": {
+                "patterns": [
+                    r"(calculate|compute|solve|derive|equation)",
+                    r"(math|physics|calculus|algebra|trigonometry)",
+                    r"(differential|integral|fourier|laplace|z.transform)",
+                    r"(signal|frequency|amplitude|phase|spectrum)",
+                    r"(acoustic|resonance|harmonic|overtone)"
+                ],
+                "primary_model": "Qwen2.5 (Math/Physics)",
+                "secondary_model": "DeepSeek-R1 (Reasoning)",
+                "confidence_threshold": 0.8,
                 "complexity_threshold": 5
             }
         }
@@ -130,20 +143,20 @@ class MultiModelGLMSystem:
     def _initialize_fallback_matrix(self):
         """Initialize fallback strategies for model unavailability"""
         return {
-            "GLM-Z1 (Reasoning & General)": {
-                "unavailable": ["DeepSeek Coder (Fast DSP)", "Code Llama (FAUST Specialist)"],
+            "DeepSeek-R1 (Reasoning)": {
+                "unavailable": ["Qwen2.5-Coder (Implementation)", "Qwen2.5 (Math/Physics)"],
                 "timeout": ["Split task into smaller parts", "Retry with simplified prompt"],
                 "error": ["Clear context and retry", "Use alternative model"]
             },
-            "Code Llama (FAUST Specialist)": {
-                "unavailable": ["GLM-Z1 (Reasoning & General)", "DeepSeek Coder (Fast DSP)"],
+            "Qwen2.5-Coder (Implementation)": {
+                "unavailable": ["DeepSeek-R1 (Reasoning)", "Qwen2.5 (Math/Physics)"],
                 "timeout": ["Reduce code complexity", "Break into smaller functions"],
-                "error": ["Validate FAUST syntax", "Check documentation context"]
+                "error": ["Validate syntax", "Check documentation context"]
             },
-            "DeepSeek Coder (Fast DSP)": {
-                "unavailable": ["GLM-Z1 (Reasoning & General)", "Code Llama (FAUST Specialist)"],
-                "timeout": ["Simplify optimization request", "Focus on single optimization"],
-                "error": ["Fall back to basic implementation", "Use standard patterns"]
+            "Qwen2.5 (Math/Physics)": {
+                "unavailable": ["DeepSeek-R1 (Reasoning)", "Qwen2.5-Coder (Implementation)"],
+                "timeout": ["Simplify calculation", "Break into smaller steps"],
+                "error": ["Fall back to reasoning model", "Use standard patterns"]
             }
         }
 
@@ -283,7 +296,7 @@ class MultiModelGLMSystem:
                 "complexity_score": 0.3,
                 "domain": "general",
                 "confidence_score": 0.5,
-                "recommended_model": "GLM-Z1 (Reasoning & General)",
+                "recommended_model": "DeepSeek-R1 (Reasoning)",
                 "subtask_count": 0,
                 "execution_time": 0
             }
@@ -374,11 +387,13 @@ class MultiModelGLMSystem:
         
         # Fallback based on complexity
         if complexity_score > 0.7:
-            return "GLM-Z1 (Reasoning & General)"  # Best for complex reasoning
+            return "DeepSeek-R1 (Reasoning)"  # Best for complex reasoning
         elif "faust" in prompt.lower() or "dsp" in prompt.lower():
-            return "Code Llama (FAUST Specialist)"
+            return "Qwen2.5-Coder (Implementation)"
+        elif "math" in prompt.lower() or "physics" in prompt.lower() or "calculate" in prompt.lower():
+            return "Qwen2.5 (Math/Physics)"
         else:
-            return "DeepSeek Coder (Fast DSP)"
+            return "Qwen2.5-Coder (Implementation)"
     
     def _determine_final_model(self, prompt: str, selected_model: str, routing_mode: str, hrm_analysis: Dict) -> Tuple[str, Dict]:
         """Determine final model based on routing mode"""
@@ -394,7 +409,7 @@ class MultiModelGLMSystem:
         elif routing_mode == "auto" or selected_model == "auto":
             # Auto mode - use HRM recommendation
             routing_decision["reason"] = f"HRM auto-routing (domain: {hrm_analysis.get('domain')}, complexity: {hrm_analysis.get('complexity_score'):.2f})"
-            return hrm_analysis.get("recommended_model", "GLM-Z1 (Reasoning & General)"), routing_decision
+            return hrm_analysis.get("recommended_model", "DeepSeek-R1 (Reasoning)"), routing_decision
             
         elif routing_mode == "assisted":
             # Assisted mode - provide recommendation but wait for confirmation
@@ -405,7 +420,7 @@ class MultiModelGLMSystem:
         else:
             # Fallback
             routing_decision["reason"] = "Fallback to default model"
-            return "GLM-Z1 (Reasoning & General)", routing_decision
+            return "DeepSeek-R1 (Reasoning)", routing_decision
     
     def _execute_complex_orchestration(self, prompt: str, hrm_analysis: Dict, use_context: bool, project_name: str, chat_history: Optional[List[Tuple[str, str]]]) -> str:
         """Execute complex task using HRM orchestration"""
@@ -420,7 +435,7 @@ class MultiModelGLMSystem:
             # Fallback to enhanced chat if no decomposition available
             return self.chat_with_model_enhanced(
                 prompt, 
-                hrm_analysis.get("recommended_model", "GLM-Z1 (Reasoning & General)"),
+                hrm_analysis.get("recommended_model", "DeepSeek-R1 (Reasoning)"),
                 use_context, 
                 project_name, 
                 chat_history, 
@@ -436,7 +451,7 @@ class MultiModelGLMSystem:
                     return fallback
         
         # Ultimate fallback
-        return "GLM-Z1 (Reasoning & General)"
+        return "DeepSeek-R1 (Reasoning)"
     
     def chat_with_model_enhanced(
         self,

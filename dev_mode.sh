@@ -4,7 +4,7 @@ echo "🔧 Launching Development Mode with Claude Code"
 echo "=============================================="
 
 # This is for when you want to optimize the system
-cd /path/to/glm_z1_project
+cd /path/to/multi-model-AI-development-assistant
 
 # Check if Claude Code is initialized
 if [ ! -f "claude.md" ]; then

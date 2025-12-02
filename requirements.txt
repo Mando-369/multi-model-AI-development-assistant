@@ -37,9 +37,9 @@ easyocr>=1.7.0
 
 # Note: Make sure you have Ollama installed separately
 # Download from: https://ollama.ai/
-# 
+#
 # Required Ollama models:
-# ollama pull JollyLlama/GLM-Z1-32B-0414-Q4_K_M:latest
-# ollama pull codellama:13b
-# ollama pull deepseek-coder:6.7b
+# ollama pull deepseek-r1:70b
+# ollama pull qwen2.5-coder:32b
+# ollama pull qwen2.5:32b
 # ollama pull nomic-embed-text

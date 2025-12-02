@@ -14,12 +14,12 @@ from src.ui import (
 
 def main():
     st.set_page_config(
-        page_title="Multi-Model GLM Assistant with Code Editor",
+        page_title="Multi-Model AI Development Assistant",
         layout="wide",
         initial_sidebar_state="expanded",
     )
 
-    st.title("🤖🎵💻 Multi-Model GLM Assistant: GLM-Z1 + Specialists + Code Editor")
+    st.title("Multi-Model AI Development Assistant")
 
     # Initialize system
     if "multi_glm_system" not in st.session_state:
@@ -86,7 +86,7 @@ def main():
         st.markdown(
             """
 ## 💬 **AI Chat Tab**
-- **Multi-model conversations** with GLM-Z1, Code Llama, and DeepSeek
+- **Multi-model conversations** with DeepSeek-R1, Qwen2.5-Coder, and Qwen2.5
 - **Project-based chat history** and context
 - **Quick FAUST actions** for audio DSP development
 

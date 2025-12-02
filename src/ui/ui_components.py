@@ -319,7 +319,7 @@ def render_model_selection(glm_system):
             selected_model = st.selectbox(
                 "Choose Model",
                 options=model_options,
-                help="GLM-Z1 for complex reasoning, Code Llama for FAUST/DSP, DeepSeek for optimization",
+                help="DeepSeek-R1 for reasoning/debugging, Qwen2.5-Coder for implementation, Qwen2.5 for math/physics",
             )
             
             # Show model info

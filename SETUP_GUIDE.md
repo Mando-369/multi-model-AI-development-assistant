@@ -1,22 +1,28 @@
-# Multi-Model GLM Assistant with Integrated Code Editor
+# Multi-Model AI Development Assistant
 
-## 🚀 Enhanced Features
+## Enhanced Features
 
-✅ **GLM-Z1 32B model** running locally via Ollama  
-✅ **Multi-model system**: GLM-Z1 (reasoning) + Code Llama (FAUST specialist) + DeepSeek (fast coding)  
-✅ **Integrated Code Editor** with syntax highlighting for 20+ languages  
-✅ **AI-Powered Code Editing** with change highlighting and diff view  
-✅ **Project-based organization** with separate chat histories  
-✅ **File browser** with include/exclude patterns  
-✅ **Direct file editing** - no copy-paste needed!  
-✅ **Persistent knowledge base** using ChromaDB  
-✅ **FAUST documentation integration** for specialist knowledge  
+- **HRM (Hierarchical Reasoning Model)** - The brain supervising all models, task decomposition and orchestration
+- **DeepSeek-R1:70B** - Leading reasoning model for debugging and complex analysis
+- **Qwen2.5-Coder:32B** - Best-in-class coding model for implementation
+- **Qwen2.5:32B / Qwen2-Math** - Strongest model for math/physics computations
+- **Integrated Code Editor** with syntax highlighting for 20+ languages
+- **AI-Powered Code Editing** with change highlighting and diff view
+- **Project-based organization** with separate chat histories
+- **File browser** with include/exclude patterns
+- **Direct file editing** - no copy-paste needed
+- **Persistent knowledge base** using ChromaDB
+- **FAUST/JUCE documentation integration** for audio DSP development  
 
-## 📋 Prerequisites
+## Prerequisites
 
 1. **Python 3.8+** installed
 2. **Ollama** installed ([Download here](https://ollama.ai/))
-3. **Tesseract OCR** for image processing (optional but recommended)
+3. **GPU Requirements**:
+   - NVIDIA GPU with CUDA 12.6+ (recommended for HRM training)
+   - OR Apple Silicon M4 Max with MPS support (for inference)
+   - Minimum 48GB VRAM for running all models simultaneously
+4. **Tesseract OCR** for image processing (optional)
 
 ### Installing Tesseract (Optional)
 ```bash
@@ -30,7 +36,7 @@ brew install tesseract
 # Download from: https://github.com/UB-Mannheim/tesseract/wiki
 ```
 
-## 🛠️ Installation Steps
+## Installation Steps
 
 ### 1. Clone/Download the Project
 ```bash
@@ -54,35 +60,70 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. Install and Setup Ollama Models
+### 4. Install Ollama Models
 
-#### Install Required Models
+#### Required Models
 ```bash
-# Main reasoning model
-ollama pull JollyLlama/GLM-Z1-32B-0414-Q4_K_M
+# Reasoning & debugging (70B - requires significant VRAM)
+ollama pull deepseek-r1:70b
 
-# FAUST/DSP specialist
-ollama pull codellama:13b
+# Best coding model
+ollama pull qwen2.5-coder:32b
 
-# Fast coding assistant
-ollama pull deepseek-coder:6.7b
+# Math/physics specialist
+ollama pull qwen2.5:32b
 
 # Embedding model for knowledge base
 ollama pull nomic-embed-text
 ```
 
-#### Verify Model Installation
+#### Optional Models
+```bash
+# Math-specific variant
+ollama pull qwen2-math
+
+# Smaller alternatives for limited VRAM
+ollama pull deepseek-r1:32b
+ollama pull qwen2.5-coder:14b
+```
+
+#### Verify Installation
 ```bash
 ollama list
 ```
-You should see all four models listed.
 
-### 5. Create Required Directories
+### 5. Install HRM (Hierarchical Reasoning Model)
+
+HRM acts as the orchestration brain, managing task decomposition and model routing.
+
+```bash
+# HRM is cloned to lib/hrm during setup
+cd lib/hrm
+
+# Install HRM dependencies
+pip install -r requirements.txt
+
+# For NVIDIA GPUs - Install FlashAttention
+# Hopper GPUs (H100, etc.):
+git clone git@github.com:Dao-AILab/flash-attention.git
+cd flash-attention/hopper && python setup.py install
+
+# Ampere or earlier GPUs:
+pip install flash-attn
+```
+
+#### Download Pre-trained HRM Checkpoints
+Available from HuggingFace:
+- [ARC-AGI-2](https://huggingface.co/sapientinc/HRM-checkpoint-ARC-2)
+- [Sudoku](https://huggingface.co/sapientinc/HRM-checkpoint-sudoku-extreme)
+- [Maze](https://huggingface.co/sapientinc/HRM-checkpoint-maze-30x30-hard)
+
+### 6. Create Required Directories
 ```bash
 mkdir -p uploads projects knowledge_db faust_documentation
 ```
 
-## 🎯 Quick Start
+## Quick Start
 
 ### 1. Launch the Application
 ```bash
@@ -102,7 +143,7 @@ streamlit run main.py
 5. **Accept or reject** AI suggestions
 6. **Save directly** to your files
 
-## 📝 Usage Examples
+## Usage Examples
 
 ### Basic Code Editing Workflow
 
@@ -130,7 +171,7 @@ streamlit run main.py
 3. **Use project-specific chat history** for context
 4. **Organize files** with the integrated file browser
 
-## 🔧 Configuration
+## Configuration
 
 ### File Filtering Patterns
 
@@ -154,7 +195,7 @@ streamlit run main.py
 - **Tab Size**: 4 spaces
 - **Language Detection**: Automatic based on file extension
 
-## 🎵 FAUST Integration
+## FAUST Integration
 
 ### Specialized Features for Audio DSP
 
@@ -174,7 +215,7 @@ python download_faust_docs_complete.py
 
 Then use the "📥 Load FAUST Docs" button in the Knowledge Base tab.
 
-## 🔍 Troubleshooting
+## Troubleshooting
 
 ### Model Loading Issues
 
@@ -210,42 +251,54 @@ chmod -R 755 uploads/
 
 ### Memory Issues with Large Models
 
-**Problem**: System running slow or out of memory  
+**Problem**: System running slow or out of memory
 **Solutions**:
-1. **Use smaller models**:
+1. **Use smaller model variants**:
    ```bash
-   ollama pull codellama:7b  # Instead of 13b
+   ollama pull deepseek-r1:32b      # Instead of 70b
+   ollama pull qwen2.5-coder:14b    # Instead of 32b
    ```
-2. **Increase system swap space**
-3. **Close other applications** while running GLM-Z1
+2. **Load models sequentially** - Unload unused models with `ollama stop <model>`
+3. **Increase system swap space**
+4. **For Apple Silicon**: Ensure sufficient unified memory allocation
 
-## 📊 System Requirements
+## System Requirements
 
 ### Minimum Requirements
-- **RAM**: 16GB (for GLM-Z1 32B model)
-- **Storage**: 50GB free space (for models and data)
+- **RAM**: 64GB (for running 70B models)
+- **VRAM**: 48GB+ (for all models loaded)
+- **Storage**: 200GB free space (models + data)
 - **CPU**: Modern multi-core processor
-- **GPU**: Optional but recommended for faster inference
+- **GPU**: Required - NVIDIA RTX 4090/A100 or Apple M4 Max
 
-### Recommended Requirements  
-- **RAM**: 32GB+ 
-- **GPU**: NVIDIA RTX 4070+ or AMD equivalent
-- **Storage**: SSD with 100GB+ free space
+### Recommended Requirements
+- **RAM**: 128GB
+- **VRAM**: 80GB+ (for concurrent model loading)
+- **GPU**: NVIDIA H100 or Apple M4 Max with 128GB unified memory
+- **Storage**: NVMe SSD with 500GB+ free space
 
-## 🚀 Advanced Usage
+## Advanced Usage
 
 ### Custom Model Integration
 
-Add new models to `multi_model_system.py`:
+Models are configured in `src/core/multi_model_system.py`:
 
 ```python
 self.models = {
-    "GLM-Z1 (Reasoning & General)": "JollyLlama/GLM-Z1-32B-0414-Q4_K_M",
-    "Code Llama (FAUST Specialist)": "codellama:13b", 
-    "DeepSeek Coder (Fast DSP)": "deepseek-coder:6.7b",
-    "Your Custom Model": "your-model-name"  # Add this
+    "DeepSeek-R1 (Reasoning)": "deepseek-r1:70b",
+    "Qwen2.5-Coder (Implementation)": "qwen2.5-coder:32b",
+    "Qwen2.5 (Math/Physics)": "qwen2.5:32b",
+    "Your Custom Model": "your-model-name"  # Add custom models here
 }
 ```
+
+### Model Routing
+
+HRM automatically routes tasks to appropriate models:
+- **Reasoning/debugging**: DeepSeek-R1:70B
+- **Code implementation**: Qwen2.5-Coder:32B
+- **Math/physics**: Qwen2.5:32B or Qwen2-Math
+- **Task orchestration**: HRM
 
 ### Extending File Type Support
 
@@ -259,21 +312,22 @@ language_map = {
 }
 ```
 
-## 🤝 Contributing
+## Contributing
 
 1. **Fork the repository**
 2. **Create a feature branch**: `git checkout -b feature/new-feature`
 3. **Test your changes** thoroughly
 4. **Submit a pull request**
 
-## 📚 Additional Resources
+## Additional Resources
 
+- [HRM - Hierarchical Reasoning Model](https://github.com/sapientinc/HRM)
 - [Ollama Documentation](https://github.com/ollama/ollama)
 - [FAUST Documentation](https://faustdoc.grame.fr/)
 - [Streamlit Documentation](https://docs.streamlit.io/)
 - [LangChain Documentation](https://python.langchain.com/)
 
-## 🐛 Reporting Issues
+## Reporting Issues
 
 If you encounter problems:
 
@@ -287,6 +341,4 @@ If you encounter problems:
 
 ---
 
-**Happy Coding with AI! 🤖✨**
-
-The integrated code editor makes it seamless to iterate on your projects with AI assistance while maintaining full control over your codebase.
+The integrated code editor enables seamless iteration on projects with AI assistance while maintaining full control over the codebase.
