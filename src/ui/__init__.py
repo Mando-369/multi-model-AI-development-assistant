@@ -7,13 +7,15 @@ from .ui_components import (
     render_sidebar,
     render_chat_interface,
 )
+from .system_monitor import render_system_monitor
 
 __all__ = [
     'EditorUI',
-    'FileEditor', 
+    'FileEditor',
     'FileBrowser',
     'render_project_management',
     'render_model_selection',
     'render_sidebar',
-    'render_chat_interface'
+    'render_chat_interface',
+    'render_system_monitor',
 ]

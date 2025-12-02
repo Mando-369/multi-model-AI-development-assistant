@@ -1,6 +1,6 @@
 import streamlit as st
 from pathlib import Path
-from ..core.prompts import MODEL_INFO, FAUST_QUICK_PROMPTS
+from ..core.prompts import MODEL_INFO
 import re
 
 
@@ -31,11 +31,41 @@ def render_project_management(glm_system):
         """
     <style>
     .project-management {
-        background-color: #f0f8ff;
-        padding: 15px;
-        border-radius: 10px;
-        border: 2px solid #4CAF50;
-        margin-bottom: 20px;
+        background: linear-gradient(135deg, #313244 0%, #1e1e2e 100%);
+        padding: 20px 25px;
+        border-radius: 12px;
+        border: 2px solid #a6e3a1;
+        margin-bottom: 25px;
+        box-shadow: 0 4px 15px rgba(166, 227, 161, 0.15);
+    }
+    .project-management h3 {
+        color: #a6e3a1 !important;
+        font-size: 1.4rem !important;
+        margin-bottom: 15px !important;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #45475a;
+    }
+    /* Style selectbox and inputs in project section */
+    .project-management .stSelectbox label,
+    .project-management .stTextInput label {
+        color: #cdd6f4 !important;
+        font-weight: 600 !important;
+        font-size: 1rem !important;
+    }
+    .project-management .stSelectbox > div > div,
+    .project-management .stTextInput > div > div > input {
+        background-color: #45475a !important;
+        border: 1px solid #585b70 !important;
+        color: #cdd6f4 !important;
+    }
+    .project-management .stButton > button {
+        background-color: #a6e3a1 !important;
+        color: #1e1e2e !important;
+        font-weight: 600 !important;
+        border: none !important;
+    }
+    .project-management .stButton > button:hover {
+        background-color: #94e2d5 !important;
     }
     </style>
     """,
@@ -67,14 +97,24 @@ def render_project_management(glm_system):
             )
 
         with col2:
+            # Initialize new project input key for clearing
+            if "new_project_input" not in st.session_state:
+                st.session_state.new_project_input = ""
+
             new_project = st.text_input(
-                "➕ New Project:", placeholder="e.g., MyAudioApp"
+                "➕ New Project:",
+                placeholder="e.g., MyAudioApp",
+                value=st.session_state.new_project_input,
+                key="new_project_field"
             )
             if new_project and st.button("Create Project", key="create_proj"):
                 success, message = glm_system.project_manager.create_project(
                     new_project
                 )
                 if success:
+                    # Switch to the new project and clear input
+                    st.session_state.current_project = new_project
+                    st.session_state.new_project_input = ""
                     st.success(message)
                     st.rerun()
                 else:
@@ -252,18 +292,35 @@ def render_model_selection(glm_system):
         """
     <style>
     .model-selection {
-        background-color: #fff8dc;
-        padding: 15px;
-        border-radius: 10px;
-        border: 2px solid #FF9800;
-        margin-bottom: 20px;
+        background: linear-gradient(135deg, #313244 0%, #1e1e2e 100%);
+        padding: 20px 25px;
+        border-radius: 12px;
+        border: 2px solid #fab387;
+        margin-bottom: 25px;
+        box-shadow: 0 4px 15px rgba(250, 179, 135, 0.15);
+    }
+    .model-selection h3 {
+        color: #fab387 !important;
+        font-size: 1.4rem !important;
+        margin-bottom: 15px !important;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #45475a;
     }
     .routing-mode {
-        background-color: #f0f8ff;
-        padding: 10px;
-        border-radius: 5px;
-        border-left: 4px solid #2196F3;
-        margin: 10px 0;
+        background-color: #45475a;
+        padding: 15px;
+        border-radius: 8px;
+        border-left: 4px solid #89b4fa;
+        margin: 15px 0;
+        color: #cdd6f4;
+    }
+    .model-selection .stRadio label {
+        color: #cdd6f4 !important;
+        font-weight: 500 !important;
+    }
+    .model-selection .stSelectbox label {
+        color: #cdd6f4 !important;
+        font-weight: 600 !important;
     }
     </style>
     """,
@@ -597,12 +654,6 @@ def render_chat_interface(glm_system, selected_model, use_context, selected_proj
     # 3. FULL CHAT HISTORY (at the bottom)
     render_full_chat_history(st.session_state[chat_key], selected_model)
 
-    # 4. Quick actions for FAUST (at the bottom)
-    if selected_model == "auto" or "FAUST" in selected_model or "Code Llama" in selected_model:
-        render_faust_quick_actions(
-            glm_system, selected_model, use_context, selected_project, chat_key, routing_mode, debug_hrm
-        )
-
 
 def render_chat_input(
     glm_system, selected_model, use_context, selected_project, chat_key, routing_mode="manual", debug_hrm=False
@@ -613,11 +664,33 @@ def render_chat_input(
         """
     <style>
     .chat-input-section {
-        background-color: #f0f2f6;
-        padding: 20px;
-        border-radius: 15px;
-        border: 2px solid #2196F3;
+        background: linear-gradient(135deg, #313244 0%, #1e1e2e 100%);
+        padding: 20px 25px;
+        border-radius: 12px;
+        border: 2px solid #89b4fa;
         margin-bottom: 30px;
+        box-shadow: 0 4px 15px rgba(137, 180, 250, 0.15);
+    }
+    .chat-input-section h3 {
+        color: #89b4fa !important;
+        font-size: 1.4rem !important;
+        margin-bottom: 15px !important;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #45475a;
+    }
+    .chat-input-section .stTextArea label {
+        color: #cdd6f4 !important;
+        font-weight: 600 !important;
+    }
+    .chat-input-section .stButton > button {
+        background-color: #89b4fa !important;
+        color: #1e1e2e !important;
+        font-weight: 600 !important;
+        font-size: 1.1rem !important;
+        padding: 10px 25px !important;
+    }
+    .chat-input-section .stButton > button:hover {
+        background-color: #b4befe !important;
     }
     </style>
     """,
@@ -933,65 +1006,3 @@ def render_full_chat_history(chat_history, selected_model):
                     st.write("---")
 
 
-def render_faust_quick_actions(
-    glm_system, selected_model, use_context, selected_project, chat_key, routing_mode="manual", debug_hrm=False
-):
-    """Render FAUST quick action buttons"""
-    # Add styling for FAUST section
-    st.markdown(
-        """
-    <style>
-    .faust-actions {
-        background-color: #f0f8ff;
-        padding: 15px;
-        border-radius: 10px;
-        border: 2px solid #9C27B0;
-        margin-top: 30px;
-    }
-    </style>
-    """,
-        unsafe_allow_html=True,
-    )
-
-    with st.container():
-        st.markdown('<div class="faust-actions">', unsafe_allow_html=True)
-        st.subheader("🎵 FAUST Quick Actions")
-        col1, col2, col3 = st.columns(3)
-
-        faust_actions = [
-            ("🔊 Basic Oscillator", FAUST_QUICK_PROMPTS["basic_oscillator"]),
-            ("🎛️ Filter Design", FAUST_QUICK_PROMPTS["filter_design"]),
-            ("🎯 Effect Chain", FAUST_QUICK_PROMPTS["effect_chain"]),
-        ]
-
-        for i, (button_text, question) in enumerate(faust_actions):
-            with [col1, col2, col3][i]:
-                if st.button(button_text):
-                    with st.spinner("Generating code..."):
-                        # Use hybrid routing for FAUST actions - favor Code Llama for FAUST tasks
-                        response_data = glm_system.generate_response(
-                            prompt=question,
-                            selected_model="Code Llama (FAUST Specialist)" if routing_mode == "auto" else selected_model,
-                            routing_mode="auto",  # Always use auto for FAUST quick actions
-                            use_context=use_context,
-                            project_name=selected_project,
-                            chat_history=st.session_state.get(chat_key, []),
-                            use_hrm_decomposition=True
-                        )
-                        
-                        response = response_data["response"]
-                        routing_info = response_data.get("routing", {})
-
-                    st.session_state[chat_key].append((question, response))
-                    
-                    # Show FAUST-specific routing info
-                    if routing_info.get('domain') == 'faust_synthesis':
-                        st.success(f"🎵 FAUST specialist routing: {routing_info.get('selected_model')}")
-                    
-                    actual_model_used = routing_info.get('selected_model', selected_model) if routing_info else selected_model
-                    glm_system.project_manager.save_chat_to_project(
-                        selected_project, actual_model_used, question, response
-                    )
-                    st.rerun()
-
-        st.markdown("</div>", unsafe_allow_html=True)

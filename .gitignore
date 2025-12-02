@@ -60,11 +60,8 @@ lib/hrm/venv/
 models/cached/
 models/downloads/
 
-# ChromaDB
-chroma_db/
+# ChromaDB (chroma_db/ tracked for pre-loaded knowledge base)
 *.chroma
-*.sqlite3
-*.db
 
 # Project Data
 projects/*/cache/

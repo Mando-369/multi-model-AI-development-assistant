@@ -3,7 +3,7 @@ from PIL import Image
 from pathlib import Path
 from datetime import datetime
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
-from langchain.schema import Document
+from langchain_core.documents import Document
 
 
 class FileProcessor:

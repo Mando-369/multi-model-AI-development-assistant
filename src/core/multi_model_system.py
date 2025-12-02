@@ -1,10 +1,11 @@
 import os
 import re
+from pathlib import Path
 from typing import Optional, List, Tuple, Dict, Union
 from langchain_community.llms import Ollama
-from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_chroma import Chroma
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from .project_manager import ProjectManager
 from .file_processor import FileProcessor
 from .prompts import SYSTEM_PROMPTS
@@ -12,6 +13,9 @@ from .context_enhancer import ContextEnhancer, enhance_vectorstore_retrieval
 
 # HRM local wrapper import
 from ..integrations.hrm_local_wrapper import HRMLocalWrapper, HRMDecomposition, SubTask
+
+# Project root directory (2 levels up from this file: src/core/multi_model_system.py)
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 
 
 
@@ -47,7 +51,8 @@ class MultiModelGLMSystem:
         )
 
         self.vectorstore = Chroma(
-            persist_directory="./chroma_db", embedding_function=self.embeddings
+            persist_directory=str(PROJECT_ROOT / "chroma_db"),
+            embedding_function=self.embeddings
         )
 
         # Initialize text splitter
@@ -62,11 +67,11 @@ class MultiModelGLMSystem:
         self.project_manager = ProjectManager()
         self.file_processor = FileProcessor(self.vectorstore, self.text_splitter)
 
-        # Create necessary directories
-        os.makedirs("./uploads", exist_ok=True)
-        os.makedirs("./projects", exist_ok=True)
-        os.makedirs("./chroma_db", exist_ok=True)
-        os.makedirs("./faust_documentation", exist_ok=True)
+        # Create necessary directories (using absolute paths)
+        (PROJECT_ROOT / "uploads").mkdir(exist_ok=True)
+        (PROJECT_ROOT / "projects").mkdir(exist_ok=True)
+        (PROJECT_ROOT / "chroma_db").mkdir(exist_ok=True)
+        (PROJECT_ROOT / "faust_documentation").mkdir(exist_ok=True)
         
         # Initialize context enhancer after vectorstore is ready
         self.context_enhancer = ContextEnhancer(self.vectorstore)

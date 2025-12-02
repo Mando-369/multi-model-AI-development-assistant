@@ -9,6 +9,7 @@ from src.ui import (
     render_model_selection,
     render_sidebar,
     render_chat_interface,
+    render_system_monitor,
 )
 
 
@@ -18,6 +19,58 @@ def main():
         layout="wide",
         initial_sidebar_state="expanded",
     )
+
+    # Custom CSS for better tab visibility
+    st.markdown("""
+    <style>
+    /* Tab styling - bigger fonts and better contrast */
+    .stTabs [data-baseweb="tab-list"] {
+        background-color: #313244;
+        padding: 10px 15px;
+        border-radius: 10px;
+        gap: 8px;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        font-size: 18px !important;
+        font-weight: 600 !important;
+        padding: 12px 24px !important;
+        background-color: #45475a;
+        border-radius: 8px;
+        color: #cdd6f4 !important;
+    }
+
+    .stTabs [data-baseweb="tab"]:hover {
+        background-color: #585b70;
+        color: #ffffff !important;
+    }
+
+    .stTabs [aria-selected="true"] {
+        background-color: #89b4fa !important;
+        color: #1e1e2e !important;
+    }
+
+    /* Main title styling */
+    h1 {
+        font-size: 2.5rem !important;
+        color: #89b4fa !important;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #45475a;
+        margin-bottom: 20px !important;
+    }
+
+    /* Section headers */
+    h2 {
+        font-size: 1.8rem !important;
+        color: #cdd6f4 !important;
+    }
+
+    h3 {
+        font-size: 1.4rem !important;
+        color: #bac2de !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
     st.title("Multi-Model AI Development Assistant")
 
@@ -53,7 +106,7 @@ def main():
     selected_project = render_project_management(st.session_state.multi_glm_system)
 
     # Main interface tabs
-    tab1, tab2, tab3 = st.tabs(["💬 AI Chat", "📝 Code Editor", "📚 Knowledge Base"])
+    tab1, tab2, tab3, tab4 = st.tabs(["💬 AI Chat", "📝 Code Editor", "📚 Knowledge Base", "🖥️ System Monitor"])
 
     # Tab 1: AI Chat Interface (existing functionality)
     with tab1:
@@ -77,6 +130,10 @@ def main():
     # Tab 3: Knowledge Base Management (moved from sidebar)
     with tab3:
         render_knowledge_base_tab()
+
+    # Tab 4: System Monitor
+    with tab4:
+        render_system_monitor(st.session_state.multi_glm_system)
 
     # Sidebar with condensed controls
     render_sidebar(st.session_state.multi_glm_system)

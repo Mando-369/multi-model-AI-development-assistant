@@ -18,6 +18,7 @@ A hierarchical multi-agent system featuring intelligent routing and specialized 
 - **Knowledge Integration**: FAUST/JUCE documentation with ChromaDB vector search
 - **Integrated Code Editor**: Syntax highlighting, AI-powered editing with diff view
 - **Project Management**: Persistent chat histories and file organization
+- **System Monitor**: Real-time status dashboard for Ollama, ChromaDB, HRM, and models
 - **MPS Acceleration**: Optimized for Apple Silicon M4 Max
 
 ## Requirements
@@ -84,16 +85,31 @@ source venv/bin/activate  # On macOS/Linux
 pip install -r requirements.txt
 ```
 
-### 6. Set Up Documentation (Optional)
+### 6. Set Up Documentation
+
 ```bash
-# Download FAUST documentation
+# Download documentation (optional - if not already present)
 python scripts/download_faust_docs_complete.py
-
-# Download JUCE documentation
 python scripts/download_juce_docs.py
-
-# Download Python documentation
 python scripts/download_python_docs.py
+
+# Load documentation into ChromaDB (required for knowledge base)
+python scripts/load_documentation.py
+```
+
+#### Documentation Management
+
+The knowledge base uses ChromaDB for persistent storage. Documents are loaded once and persist between app restarts.
+
+```bash
+# Check current knowledge base status
+python scripts/load_documentation.py --status
+
+# Update only modified files (detects changes via hash)
+python scripts/load_documentation.py --update
+
+# Full reset and reload (clears everything)
+python scripts/load_documentation.py --reset
 ```
 
 ## Usage
@@ -114,6 +130,30 @@ streamlit run main.py
 1. **🚀 Auto Mode**: Let HRM decide the best model
 2. **🎯 Manual Mode**: Select model directly
 3. **💡 Assisted Mode**: Get HRM recommendations
+
+### Interface Tabs
+
+The application has 4 main tabs:
+
+| Tab | Description |
+|-----|-------------|
+| **💬 AI Chat** | Multi-model conversations with project context |
+| **📝 Code Editor** | Syntax-highlighted editor with AI assistance |
+| **📚 Knowledge Base** | File uploads and documentation management |
+| **🖥️ System Monitor** | Real-time status dashboard |
+
+### System Monitor
+
+The System Monitor tab provides real-time visibility into all system components:
+
+- **Ollama Status**: Connection health, response times, available models
+- **ChromaDB Status**: Document count, index health
+- **HRM Status**: Device detection (MPS/CUDA/CPU), cache status
+- **Model Status**: Which models are loaded, lazy loading info
+- **Activity Log**: Recent system events with timestamps
+- **System Info**: Python, Streamlit, and library versions
+
+Use the **Refresh Status** button to update all metrics.
 
 ### Example Queries
 
@@ -149,6 +189,7 @@ multi-model-AI-development-assistant/
 │   │   ├── editor_ui.py            # Code editor interface
 │   │   ├── file_browser.py         # File browser
 │   │   ├── file_editor.py          # File editing logic
+│   │   ├── system_monitor.py       # System status dashboard
 │   │   └── ui_components.py        # UI component library
 │   └── integrations/          # External integrations
 │       ├── hrm_local_wrapper.py    # HRM integration
@@ -175,22 +216,92 @@ multi-model-AI-development-assistant/
 
 ## Architecture
 
+### System Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           STREAMLIT UI (main.py)                            │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
+│  │   Project   │  │    Model    │  │    Chat     │  │    File Editor     │ │
+│  │  Management │  │  Selection  │  │  Interface  │  │   (Ace Editor)     │ │
+│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────────────┘ │
+└────────────────────────────────┬────────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    MultiModelGLMSystem (Orchestrator)                        │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │                    HRM Local Wrapper (MPS Accelerated)                  ││
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────────┐  ││
+│  │  │ Task Analysis│  │ Complexity   │  │ Domain Pattern Matching      │  ││
+│  │  │ & Decompose  │  │ Estimation   │  │ (FAUST/JUCE/Math/General)    │  ││
+│  │  └──────────────┘  └──────────────┘  └──────────────────────────────┘  ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+│                                    │                                         │
+│        ┌───────────────────────────┼───────────────────────────┐            │
+│        ▼                           ▼                           ▼            │
+│  ┌───────────────┐         ┌───────────────┐         ┌───────────────┐      │
+│  │ DeepSeek-R1   │         │ Qwen2.5-Coder │         │   Qwen2.5     │      │
+│  │    :70b       │         │     :32b      │         │     :32b      │      │
+│  │               │         │               │         │               │      │
+│  │  Reasoning    │         │Implementation │         │  Math/Physics │      │
+│  │  Debugging    │         │  FAUST/C++    │         │  Calculations │      │
+│  │  Architecture │         │  Code Gen     │         │  DSP Theory   │      │
+│  └───────────────┘         └───────────────┘         └───────────────┘      │
+│        │                           │                           │            │
+│        └───────────────────────────┼───────────────────────────┘            │
+│                                    ▼                                         │
+│  ┌─────────────────────────────────────────────────────────────────────────┐│
+│  │                      Context Enhancement Layer                          ││
+│  │  ┌──────────────────────────────────────────────────────────────────┐  ││
+│  │  │                     ChromaDB Vector Store                         │  ││
+│  │  │  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐ │  ││
+│  │  │  │   FAUST    │  │    JUCE    │  │   Python   │  │  Uploaded  │ │  ││
+│  │  │  │   Docs     │  │    Docs    │  │    Docs    │  │   Files    │ │  ││
+│  │  │  │ 758 chunks │  │ 165 chunks │  │ 92 chunks  │  │    ...     │ │  ││
+│  │  │  └────────────┘  └────────────┘  └────────────┘  └────────────┘ │  ││
+│  │  └──────────────────────────────────────────────────────────────────┘  ││
+│  └─────────────────────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              OLLAMA (Local)                                  │
+│                   Model serving on localhost:11434                           │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Data Flow
+
 ```mermaid
 graph TD
     A[User Input] --> B[Streamlit UI]
-    B --> C{Routing Decision}
+    B --> C{Routing Mode}
     C -->|Auto| D[HRM Analysis]
-    C -->|Manual| E[Direct Model]
-    C -->|Assisted| F[HRM + Override]
+    C -->|Manual| E[Direct Model Selection]
+    C -->|Assisted| F[HRM + User Override]
+
     D --> G[Task Decomposition]
-    G --> H[Model Orchestra]
-    H --> I[DeepSeek-R1: Reasoning]
-    H --> J[Qwen2.5-Coder: Implementation]
-    H --> K[Qwen2.5: Math/Physics]
-    I --> L[ChromaDB Context]
-    J --> L
-    K --> L
-    L --> M[Response Generation]
+    G --> H{Complexity > 0.7?}
+    H -->|Yes| I[Multi-Phase Execution]
+    H -->|No| J[Single Model Call]
+
+    I --> K[Phase 1: Analysis]
+    K --> L[Phase 2: Implementation]
+    L --> M[Phase 3: Integration]
+
+    E --> J
+    F --> J
+
+    J --> N[Context Enhancement]
+    M --> N
+
+    N --> O[ChromaDB Retrieval]
+    O --> P[Chat History]
+    P --> Q[Project Context]
+    Q --> R[Ollama Model Call]
+    R --> S[Response Synthesis]
+    S --> T[Display Result]
 ```
 
 ## Configuration
