@@ -76,17 +76,9 @@ def main():
 
     # Initialize system
     if "multi_glm_system" not in st.session_state:
-        with st.spinner("Initializing multi-model system with HRM..."):
+        with st.spinner("Initializing AI system..."):
             st.session_state.multi_glm_system = MultiModelGLMSystem()
-            
-            # Display HRM initialization status
-            hrm_status = getattr(st.session_state.multi_glm_system, 'hrm_wrapper', None)
-            if hrm_status:
-                st.success("🧠 HRM Local Wrapper initialized successfully")
-                if hasattr(hrm_status, 'device') and hrm_status.device == 'mps':
-                    st.success("⚡ M4 Max MPS acceleration enabled")
-            else:
-                st.warning("⚠️ HRM initialization incomplete - using pattern-based routing")
+            st.success("✅ AI system initialized (DeepSeek + Qwen)")
 
     # Initialize editor components
     if "file_editor" not in st.session_state:
@@ -105,13 +97,31 @@ def main():
     # Project management (shared across all tabs)
     selected_project = render_project_management(st.session_state.multi_glm_system)
 
-    # Main interface tabs
-    tab1, tab2, tab3, tab4 = st.tabs(["💬 AI Chat", "📝 Code Editor", "📚 Knowledge Base", "🖥️ System Monitor"])
+    # Initialize active tab in session state (persists across reruns)
+    if "active_tab" not in st.session_state:
+        st.session_state.active_tab = "💬 AI Chat"
 
-    # Tab 1: AI Chat Interface (existing functionality)
-    with tab1:
+    # Tab selector that persists selection
+    tab_options = ["💬 AI Chat", "📝 Code Editor", "📚 Knowledge Base", "🖥️ System Monitor"]
+    selected_tab = st.radio(
+        "Navigation",
+        tab_options,
+        index=tab_options.index(st.session_state.active_tab),
+        horizontal=True,
+        key="tab_selector",
+        label_visibility="collapsed"
+    )
+
+    # Update session state when tab changes
+    if selected_tab != st.session_state.active_tab:
+        st.session_state.active_tab = selected_tab
+
+    st.divider()
+
+    # Render content based on selected tab
+    if selected_tab == "💬 AI Chat":
         st.header("🤖 AI Assistant Chat")
-        selected_model, use_context, routing_mode, debug_hrm = render_model_selection(
+        selected_model, use_context, selected_agent = render_model_selection(
             st.session_state.multi_glm_system
         )
         render_chat_interface(
@@ -119,20 +129,16 @@ def main():
             selected_model,
             use_context,
             selected_project,
-            routing_mode,
-            debug_hrm,
+            selected_agent,
         )
 
-    # Tab 2: Code Editor Interface (new functionality)
-    with tab2:
+    elif selected_tab == "📝 Code Editor":
         render_code_editor_tab(selected_project)
 
-    # Tab 3: Knowledge Base Management (moved from sidebar)
-    with tab3:
+    elif selected_tab == "📚 Knowledge Base":
         render_knowledge_base_tab()
 
-    # Tab 4: System Monitor
-    with tab4:
+    elif selected_tab == "🖥️ System Monitor":
         render_system_monitor(st.session_state.multi_glm_system)
 
     # Sidebar with condensed controls
@@ -190,218 +196,158 @@ def render_code_editor_tab(selected_project: str):
     """Render the code editor tab interface"""
     col1, col2 = st.columns([1, 2])
 
+    # Compute project_path first (needed for both containers)
+    if selected_project == "Default":
+        base_project_path = str(Path.cwd())
+    else:
+        base_project_path = str(Path("./projects") / selected_project)
+
+    if "current_browse_folder" in st.session_state:
+        project_path = st.session_state.current_browse_folder
+    else:
+        project_path = base_project_path
+
     with col1:
-        st.subheader("📁 File Browser")
+        # ===== CONTAINER 1: File Browser Controls =====
+        with st.container(border=True):
+            st.subheader("📁 File Browser")
 
-        # Get project path - fix the logic here
-        if selected_project == "Default":
-            base_project_path = str(Path.cwd())
-        else:
-            base_project_path = str(Path("./projects") / selected_project)
+            # Show which project/folder we're working with
+            st.write("**📂 Current Project/Folder:**")
 
-        # Show which project/folder we're working with
-        st.write("**📂 Current Project/Folder:**")
-
-        # Use custom folder if one was selected, otherwise use project folder
-        if "current_browse_folder" in st.session_state:
-            project_path = st.session_state.current_browse_folder
-            st.info(f"📂 **Custom Folder:** `{project_path}`")
-
-            # Add button to return to project folder
-            if st.button("🔙 Return to Project Folder", key="return_to_project"):
-                del st.session_state.current_browse_folder
-                if "show_folder_picker" in st.session_state:
-                    del st.session_state.show_folder_picker
-                st.rerun()
-        else:
-            project_path = base_project_path
-            if selected_project == "Default":
-                st.code(f"📁 Default Project: {project_path}")
+            if "current_browse_folder" in st.session_state:
+                st.info(f"📂 **Custom Folder:** `{project_path}`")
+                if st.button("🔙 Return to Project Folder", key="return_to_project"):
+                    del st.session_state.current_browse_folder
+                    if "show_folder_picker" in st.session_state:
+                        del st.session_state.show_folder_picker
+                    st.rerun()
             else:
-                st.code(f"📁 Project '{selected_project}': {project_path}")
+                if selected_project == "Default":
+                    st.code(f"📁 Default Project: {project_path}")
+                else:
+                    st.code(f"📁 Project '{selected_project}': {project_path}")
+                    if not Path(project_path).exists():
+                        st.warning(f"Project directory doesn't exist. Creating: {project_path}")
+                        Path(project_path).mkdir(parents=True, exist_ok=True)
+                        st.success("Project directory created!")
+                        st.rerun()
 
-                # Check if project directory exists, create if not
-                if not Path(project_path).exists():
-                    st.warning(
-                        f"Project directory doesn't exist. Creating: {project_path}"
-                    )
-                    Path(project_path).mkdir(parents=True, exist_ok=True)
-                    st.success("Project directory created!")
+            # Folder selection buttons
+            col_a, col_b = st.columns(2)
+            with col_a:
+                if st.button("📂 Browse Folder", key="browse_folder", use_container_width=True):
+                    st.session_state.show_folder_picker = not st.session_state.get("show_folder_picker", False)
+            with col_b:
+                if st.button("🔄 Refresh", key="refresh_files", use_container_width=True):
+                    st.session_state.file_browser.expanded_dirs.clear()
+                    keys_to_clear = [k for k in st.session_state.keys() if isinstance(k, str) and
+                                     (k.startswith("dir_expanded_") or k.startswith("file_select_"))]
+                    for key in keys_to_clear:
+                        del st.session_state[key]
                     st.rerun()
 
-        # Add folder selection option
-        col_a, col_b = st.columns(2)
-        with col_a:
-            if st.button(
-                "📂 Browse Different Folder",
-                key="browse_folder",
-                help="Browse and select a different folder to work with",
-                type="secondary",
-                use_container_width=True,
-            ):
-                st.session_state.show_folder_picker = not st.session_state.get(
-                    "show_folder_picker", False
-                )
-
-        with col_b:
-            if st.button(
-                "🔄 Refresh Files", key="refresh_files", use_container_width=True
-            ):
-                # Clear expanded directories when refreshing to start collapsed
-                st.session_state.file_browser.expanded_dirs.clear()
-
-                # Clear ALL relevant session state keys more thoroughly
-                keys_to_clear = []
-                for key in list(st.session_state.keys()):
-                    if isinstance(key, str) and (
-                        key.startswith("dir_expanded_")
-                        or key.startswith("file_select_")
-                        or key.startswith("editor_")
-                        or key.startswith("ai_prompt_")
-                        or key.startswith("ai_model_")
-                    ):
-                        keys_to_clear.append(key)
-
-                # Clear the keys
-                for key in keys_to_clear:
-                    del st.session_state[key]
-
-                st.success("File browser refreshed and collapsed!")
-                st.rerun()
-
-        # Show folder picker if requested
-        if st.session_state.get("show_folder_picker", False):
-            st.write("---")
-            with st.container():
-                st.markdown("### 📂 **Select Project Folder**")
-
+            # Folder picker
+            if st.session_state.get("show_folder_picker", False):
+                st.markdown("---")
+                st.markdown("**📂 Select Project Folder**")
                 selected_folder = st.session_state.file_browser.render_folder_picker()
-
                 if selected_folder == "CANCEL":
                     st.session_state.show_folder_picker = False
                     st.rerun()
-                elif selected_folder:
-                    if selected_folder != project_path:
-                        # Store the selected folder
-                        st.session_state.current_browse_folder = selected_folder
-                        st.success(f"✅ **Switched to folder:** `{selected_folder}`")
-                        st.session_state.show_folder_picker = False
-                        st.rerun()
+                elif selected_folder and selected_folder != project_path:
+                    st.session_state.current_browse_folder = selected_folder
+                    st.session_state.show_folder_picker = False
+                    st.rerun()
 
-        st.write("---")
-
-        # File filtering controls
-        include_patterns, exclude_patterns = (
-            st.session_state.file_browser.render_file_filter_controls()
-        )
-
-        # Update project file patterns
-        st.session_state.multi_glm_system.project_manager.update_file_patterns(
-            selected_project, include_patterns, exclude_patterns
-        )
-
-        st.write("---")
-
-        # File operations
-        new_file = st.session_state.file_browser.render_file_operations(project_path)
-        if new_file:
-            # Open newly created file in editor
-            if st.session_state.editor_ui.open_file_in_editor(new_file):
-                st.rerun()
-
-        st.write("---")
-
-        # File tree browser
-        st.write("**📁 File Tree:**")
-        selected_file = None  # Initialize to avoid unbound variable
-
-        try:
-            # Actually call the method with comprehensive error handling
-            selected_file = st.session_state.file_browser.render_file_tree(
-                project_path, include_patterns, exclude_patterns
+            # File filtering controls
+            st.markdown("---")
+            include_patterns, exclude_patterns = st.session_state.file_browser.render_file_filter_controls()
+            st.session_state.multi_glm_system.project_manager.update_file_patterns(
+                selected_project, include_patterns, exclude_patterns
             )
 
-        except Exception as e:
-            st.error(f"**❌ Error rendering file tree:** {e}")
-            st.write(f"**Error details:** {type(e).__name__}: {str(e)}")
-            # Show traceback
-            import traceback
+            # File operations
+            st.markdown("---")
+            new_file = st.session_state.file_browser.render_file_operations(project_path)
+            if new_file:
+                if st.session_state.editor_ui.open_file_in_editor(new_file):
+                    st.rerun()
 
-            st.code(traceback.format_exc())
+        # ===== CONTAINER 2: File Tree =====
+        with st.container(border=True):
+            st.subheader("📁 File Tree")
+            selected_file = None
 
-        # Open selected file in editor - FIXED LOGIC
-        if selected_file:
-            # Ensure the file path is absolute and normalized
-            selected_file = str(Path(selected_file).resolve())
-
-            # Debug info
-            with st.expander("🔍 Debug: File Opening", expanded=False):
-                st.write(f"Selected file: {selected_file}")
-                st.write(f"File exists: {Path(selected_file).exists()}")
-                st.write(
-                    f"Currently open files: {list(st.session_state.get('editor_open_files', {}).keys())}"
+            try:
+                selected_file = st.session_state.file_browser.render_file_tree(
+                    project_path, include_patterns, exclude_patterns
                 )
+            except Exception as e:
+                st.error(f"**❌ Error rendering file tree:** {e}")
+                import traceback
+                st.code(traceback.format_exc())
 
-            # Try to open the file
-            success = st.session_state.editor_ui.open_file_in_editor(selected_file)
-
-            if success:
-                # Force a rerun to update the UI
-                st.rerun()
-            else:
-                # File might already be open, switch to its tab
-                if selected_file in st.session_state.get("editor_open_files", {}):
+            # Open selected file in editor
+            if selected_file:
+                selected_file = str(Path(selected_file).resolve())
+                success = st.session_state.editor_ui.open_file_in_editor(selected_file)
+                if success:
+                    st.rerun()
+                elif selected_file in st.session_state.get("editor_open_files", {}):
                     st.info(f"File already open: {Path(selected_file).name}")
 
     with col2:
-        st.subheader("💻 Code Editor")
+        # ===== CONTAINER 3: Code Editor =====
+        with st.container(border=True):
+            st.subheader("💻 Code Editor")
 
-        # Multi-file editor interface
-        has_open_files = st.session_state.editor_ui.render_multi_file_editor(
-            project_path, selected_project
-        )
+            # Multi-file editor interface
+            has_open_files = st.session_state.editor_ui.render_multi_file_editor(
+                project_path, selected_project
+            )
 
-        if not has_open_files:
-            # More helpful instructions when no files are open
-            st.markdown(
+            if not has_open_files:
+                # More helpful instructions when no files are open
+                st.markdown(
+                    """
+                ### 🚀 **Getting Started with the Code Editor**
+
+                **To open files for editing:**
+                1. 👈 **Click on any file name** in the file browser on the left
+                2. **Use the "📝 Create New File"** button to start from scratch
+                3. **Browse different folders** using the folder browser above
+
+                **Features you'll have access to:**
+                - ✨ **Syntax highlighting** for 20+ programming languages
+                - 🤖 **AI-powered code assistance** with change highlighting
+                - 💾 **Direct file saving** - no copy-paste needed
+                - 🔍 **Diff viewer** to review AI suggestions
+                - 📁 **Multi-file tabs** for working on several files at once
+
+                **Perfect for:**
+                - 🎵 **FAUST DSP development**
+                - 💻 **C++/Python coding**
+                - 📝 **Documentation editing**
+                - 🎛️ **JUCE audio applications**
                 """
-            ### 🚀 **Getting Started with the Code Editor**
-            
-            **To open files for editing:**
-            1. 👈 **Click on any file name** in the file browser on the left
-            2. **Use the "📝 Create New File"** button to start from scratch  
-            3. **Browse different folders** using the folder browser above
-            
-            **Features you'll have access to:**
-            - ✨ **Syntax highlighting** for 20+ programming languages
-            - 🤖 **AI-powered code assistance** with change highlighting
-            - 💾 **Direct file saving** - no copy-paste needed
-            - 🔍 **Diff viewer** to review AI suggestions
-            - 📁 **Multi-file tabs** for working on several files at once
-            
-            **Perfect for:**
-            - 🎵 **FAUST DSP development** 
-            - 💻 **C++/Python coding**
-            - 📝 **Documentation editing**
-            - 🎛️ **JUCE audio applications**
-            """
-            )
-
-            # Show project stats
-            project_stats = (
-                st.session_state.multi_glm_system.project_manager.get_project_stats(
-                    selected_project
                 )
-            )
 
-            st.write("### 📊 **Project Overview**")
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("📁 Total Files", project_stats["total_files"])
-            with col2:
-                st.metric("✅ Included", project_stats["included_files"])
-            with col3:
-                st.metric("❌ Excluded", project_stats["excluded_files"])
+                # Show project stats
+                project_stats = (
+                    st.session_state.multi_glm_system.project_manager.get_project_stats(
+                        selected_project
+                    )
+                )
+
+                st.write("### 📊 **Project Overview**")
+                stat_col1, stat_col2, stat_col3 = st.columns(3)
+                with stat_col1:
+                    st.metric("📁 Total Files", project_stats["total_files"])
+                with stat_col2:
+                    st.metric("✅ Included", project_stats["included_files"])
+                with stat_col3:
+                    st.metric("❌ Excluded", project_stats["excluded_files"])
 
 
 def render_knowledge_base_tab():

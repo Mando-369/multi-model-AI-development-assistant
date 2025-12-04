@@ -310,7 +310,7 @@ class EditorUI:
                     • Add error handling
                     • Fix any bugs you find
                     • Refactor this code to be more readable""",
-                height=100,
+                height=350,
                 key=f"ai_prompt_{Path(file_path).name}",
             )
 

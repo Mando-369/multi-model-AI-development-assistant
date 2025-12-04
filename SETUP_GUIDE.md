@@ -1,226 +1,168 @@
-# Multi-Model AI Development Assistant
+# Local AI Coding Assistant - Setup Guide
 
-## Enhanced Features
+## Overview
 
-- **HRM (Hierarchical Reasoning Model)** - The brain supervising all models, task decomposition and orchestration
-- **DeepSeek-R1:70B** - Leading reasoning model for debugging and complex analysis
-- **Qwen2.5-Coder:32B** - Best-in-class coding model for implementation
-- **Qwen2.5:32B / Qwen2-Math** - Strongest model for math/physics computations
-- **Integrated Code Editor** with syntax highlighting for 20+ languages
-- **AI-Powered Code Editing** with change highlighting and diff view
-- **Project-based organization** with separate chat histories
-- **File browser** with include/exclude patterns
-- **Direct file editing** - no copy-paste needed
-- **Persistent knowledge base** using ChromaDB
-- **FAUST/JUCE documentation integration** for audio DSP development  
+A local, offline AI reasoning assistant for FAUST/JUCE audio DSP development. Use alongside your preferred coding tools (Claude Code, Cursor, Codex).
+
+**Key Features:**
+- **DeepSeek-R1:70B** - Deep reasoning, planning, architecture decisions
+- **Qwen2.5:32B** - Fast summarization, titles, quick tasks
+- **Specialist Agent Modes** - FAUST, JUCE, Math, Physics/Electronics
+- **Export Buttons** - Copy, Save, Format for Claude
+- **Integrated Code Editor** with syntax highlighting
+- **ChromaDB Knowledge Base** with FAUST/JUCE documentation
 
 ## Prerequisites
 
-1. **Python 3.8+** installed
+1. **Python 3.10+** installed
 2. **Ollama** installed ([Download here](https://ollama.ai/))
-3. **GPU Requirements**:
-   - NVIDIA GPU with CUDA 12.6+ (recommended for HRM training)
-   - OR Apple Silicon M4 Max with MPS support (for inference)
-   - Minimum 48GB VRAM for running all models simultaneously
-4. **Tesseract OCR** for image processing (optional)
+3. **System Requirements**:
+   - macOS with Apple Silicon (M4 Max recommended)
+   - 64GB+ RAM (128GB recommended for 70B model)
+   - 200GB+ storage for models
 
-### Installing Tesseract (Optional)
+## Installation
+
+### 1. Clone the Repository
 ```bash
-# Ubuntu/Debian
-sudo apt-get install tesseract-ocr
-
-# macOS
-brew install tesseract
-
-# Windows
-# Download from: https://github.com/UB-Mannheim/tesseract/wiki
+git clone https://github.com/Mando-369/multi-model-AI-development-assistant.git
+cd multi-model-AI-development-assistant
 ```
 
-## Installation Steps
-
-### 1. Clone/Download the Project
+### 2. Install Ollama and Models
 ```bash
-git clone <your-repo-url>
-cd multi-model-glm-assistant
-```
+# Install Ollama (macOS)
+curl -fsSL https://ollama.ai/install.sh | sh
 
-### 2. Create Virtual Environment
-```bash
-python -m venv venv
+# Start Ollama service
+ollama serve
 
-# Activate virtual environment
-# On Windows:
-venv\Scripts\activate
-# On macOS/Linux:
-source venv/bin/activate
-```
+# Pull required models
+ollama pull deepseek-r1:70b    # Primary reasoning
+ollama pull qwen2.5:32b        # Fast summarization
 
-### 3. Install Python Dependencies
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Install Ollama Models
-
-#### Required Models
-```bash
-# Reasoning & debugging (70B - requires significant VRAM)
-ollama pull deepseek-r1:70b
-
-# Best coding model
-ollama pull qwen2.5-coder:32b
-
-# Math/physics specialist
-ollama pull qwen2.5:32b
-
-# Embedding model for knowledge base
-ollama pull nomic-embed-text
-```
-
-#### Optional Models
-```bash
-# Math-specific variant
-ollama pull qwen2-math
-
-# Smaller alternatives for limited VRAM
-ollama pull deepseek-r1:32b
-ollama pull qwen2.5-coder:14b
-```
-
-#### Verify Installation
-```bash
+# Verify installation
 ollama list
 ```
 
-### 5. Install HRM (Hierarchical Reasoning Model)
-
-HRM acts as the orchestration brain, managing task decomposition and model routing.
-
+### 3. Create Virtual Environment
 ```bash
-# HRM is cloned to lib/hrm during setup
-cd lib/hrm
+python -m venv venv
 
-# Install HRM dependencies
+# Activate (macOS/Linux)
+source venv/bin/activate
+
+# Activate (Windows)
+venv\Scripts\activate
+```
+
+### 4. Install Dependencies
+```bash
 pip install -r requirements.txt
-
-# For NVIDIA GPUs - Install FlashAttention
-# Hopper GPUs (H100, etc.):
-git clone git@github.com:Dao-AILab/flash-attention.git
-cd flash-attention/hopper && python setup.py install
-
-# Ampere or earlier GPUs:
-pip install flash-attn
 ```
 
-#### Download Pre-trained HRM Checkpoints
-Available from HuggingFace:
-- [ARC-AGI-2](https://huggingface.co/sapientinc/HRM-checkpoint-ARC-2)
-- [Sudoku](https://huggingface.co/sapientinc/HRM-checkpoint-sudoku-extreme)
-- [Maze](https://huggingface.co/sapientinc/HRM-checkpoint-maze-30x30-hard)
-
-### 6. Create Required Directories
+### 5. Load Documentation (Optional)
 ```bash
-mkdir -p uploads projects knowledge_db faust_documentation
+python scripts/load_documentation.py
 ```
 
-## Quick Start
-
-### 1. Launch the Application
+### 6. Start the Application
 ```bash
 streamlit run main.py
+# Access at http://localhost:8501
 ```
 
-### 2. First-Time Setup
-1. **Check Model Status** - Use the "Check Model Availability" button in the sidebar
-2. **Create a Project** - Click "➕ New Project" and create your first project
-3. **Upload Documentation** - Go to Knowledge Base tab and upload your files
+## Usage
 
-### 3. Start Coding!
-1. **Switch to Code Editor tab**
-2. **Create or open files** using the file browser
-3. **Ask AI to modify your code** with specific instructions
-4. **Review highlighted changes** in the diff viewer
-5. **Accept or reject** AI suggestions
-6. **Save directly** to your files
+### Specialist Agent Modes
 
-## Usage Examples
+| Mode | Icon | Focus |
+|------|------|-------|
+| General | 🤖 | General-purpose reasoning |
+| FAUST | 🎛️ | DSP language, signal flow, block diagrams |
+| JUCE | 🎹 | C++ audio framework, VST/AU plugins |
+| Math | 📐 | DSP algorithms, filter design |
+| Physics | ⚡ | Circuits, acoustics, electronics |
 
-### Basic Code Editing Workflow
+### Hybrid Workflow
 
-1. **Open a Python file** in the Code Editor tab
-2. **Select your code** and ask AI: "Add docstrings to all functions"
-3. **Review the changes** in the highlighted diff view:
-   - 🟢 **Green lines** = AI additions
-   - 🔴 **Red lines** = AI deletions  
-   - 🔵 **Blue lines** = AI modifications
-4. **Accept or reject** the changes
-5. **Save directly** to your file
+1. **Select Specialist Mode** (FAUST, JUCE, Math, etc.)
+2. **Ask DeepSeek** your complex question
+3. **Wait for reasoning** (slower but thorough)
+4. **Export the result**:
+   - 📋 **Copy Response** → Paste into Claude Code
+   - 💾 **Save to Project** → Creates timestamped .md file
+   - 📤 **Format for Claude** → Ready-to-paste format
 
-### FAUST DSP Development
+### Interface Tabs
 
-1. **Create a new .dsp file** 
-2. **Ask Qwen2.5-Coder**: "Create a stereo reverb effect with adjustable room size"
-3. **Review the FAUST code** with syntax highlighting
-4. **Iterate with AI** to refine the algorithm
-5. **Save and test** your DSP code
-
-### Project Organization
-
-1. **Create specialized projects** for different codebases
-2. **Set include/exclude patterns** to focus on relevant files
-3. **Use project-specific chat history** for context
-4. **Organize files** with the integrated file browser
+| Tab | Description |
+|-----|-------------|
+| **💬 AI Chat** | Main conversation with specialist modes |
+| **📝 Code Editor** | File browser and syntax-highlighted editor |
+| **📚 Knowledge Base** | Upload and manage documentation |
+| **🖥️ System Monitor** | System status dashboard |
 
 ## Configuration
 
-### File Filtering Patterns
+### Model Configuration
 
-**Default Include Patterns:**
-- `*.py` (Python files)
-- `*.cpp`, `*.h`, `*.hpp` (C++ files)  
-- `*.dsp`, `*.lib`, `*.fst` (FAUST files)
-- `*.txt`, `*.md` (Documentation)
-- `*.json` (Configuration files)
+Models are defined in `src/core/multi_model_system.py`:
 
-**Default Exclude Patterns:**
-- `__pycache__`, `*.pyc` (Python cache)
-- `.git` (Git repository data)
-- `node_modules` (Node.js dependencies)
-- `*.exe`, `*.dll` (Binaries)
-
-### Editor Settings
-
-- **Theme**: Monokai (dark theme optimized for code)
-- **Font Size**: 14px (adjustable per project)
-- **Tab Size**: 4 spaces
-- **Language Detection**: Automatic based on file extension
-
-## FAUST Integration
-
-### Specialized Features for Audio DSP
-
-1. **FAUST Documentation**: Load complete FAUST library documentation
-2. **Qwen2.5-Coder**: Code implementation with FAUST documentation context
-3. **Quick Actions**: Pre-built prompts for common FAUST patterns:
-   - Basic oscillators
-   - Filter designs  
-   - Effect chains
-4. **Syntax Support**: Full highlighting for `.dsp` and `.lib` files
-
-### Loading FAUST Documentation
-```bash
-# Run the documentation downloader
-python download_faust_docs_complete.py
+```python
+self.models = {
+    "DeepSeek-R1:70B (Reasoning)": "deepseek-r1:70b",
+    "Qwen2.5:32B (Fast)": "qwen2.5:32b",
+}
 ```
 
-Then use the "📥 Load FAUST Docs" button in the Knowledge Base tab.
+### Specialist Modes
+
+Agent modes are defined in `src/core/prompts.py`:
+
+```python
+AGENT_MODES = {
+    "General": {...},
+    "FAUST": {...},
+    "JUCE": {...},
+    "Math": {...},
+    "Physics": {...},
+}
+```
+
+### File Filtering Patterns
+
+**Default Include:**
+- `*.py`, `*.cpp`, `*.h`, `*.hpp`
+- `*.dsp`, `*.lib`, `*.fst` (FAUST)
+- `*.txt`, `*.md`, `*.json`
+
+**Default Exclude:**
+- `__pycache__`, `*.pyc`
+- `.git`, `node_modules`
+- `*.exe`, `*.dll`
 
 ## Troubleshooting
 
-### Model Loading Issues
+### Ollama Connection Error
+```bash
+ollama serve    # Ensure Ollama is running
+ollama list     # Check available models
+```
 
-**Problem**: "❌ Model Missing" errors  
-**Solution**: 
+### Memory Issues
+```bash
+# Use smaller model variants
+ollama pull deepseek-r1:32b  # Instead of 70b
+```
+
+### Reset Knowledge Base
+```bash
+rm -rf chroma_db/
+python scripts/load_documentation.py
+```
+
+### Model Loading Issues
 ```bash
 # Re-pull the missing model
 ollama pull <model-name>
@@ -229,116 +171,40 @@ ollama pull <model-name>
 ollama serve
 ```
 
-### Code Editor Not Loading
+## Project Structure
 
-**Problem**: Blank editor or loading issues  
-**Solution**:
-1. Clear browser cache
-2. Restart Streamlit: `Ctrl+C` then `streamlit run main.py`
-3. Check console for JavaScript errors
-
-### File Permission Errors
-
-**Problem**: Cannot save files  
-**Solution**:
-```bash
-# Fix permissions (Unix/Linux/macOS)
-chmod -R 755 projects/
-chmod -R 755 uploads/
-
-# On Windows, run as administrator if needed
+```
+multi-model-AI-development-assistant/
+├── main.py                    # Streamlit entry point
+├── src/
+│   ├── core/
+│   │   ├── multi_model_system.py    # Model orchestration
+│   │   ├── prompts.py               # System prompts & agent modes
+│   │   ├── project_manager.py       # Project management
+│   │   └── context_enhancer.py      # RAG context enhancement
+│   └── ui/
+│       ├── ui_components.py         # UI components
+│       ├── editor_ui.py             # Code editor
+│       └── file_browser.py          # File browser
+├── chroma_db/                 # Vector database
+├── projects/                  # User projects & saved sessions
+└── requirements.txt
 ```
 
-### Memory Issues with Large Models
+## Saved Sessions
 
-**Problem**: System running slow or out of memory
-**Solutions**:
-1. **Use smaller model variants**:
-   ```bash
-   ollama pull deepseek-r1:32b      # Instead of 70b
-   ollama pull qwen2.5-coder:14b    # Instead of 32b
-   ```
-2. **Load models sequentially** - Unload unused models with `ollama stop <model>`
-3. **Increase system swap space**
-4. **For Apple Silicon**: Ensure sufficient unified memory allocation
-
-## System Requirements
-
-### Minimum Requirements
-- **RAM**: 64GB (for running 70B models)
-- **VRAM**: 48GB+ (for all models loaded)
-- **Storage**: 200GB free space (models + data)
-- **CPU**: Modern multi-core processor
-- **GPU**: Required - NVIDIA RTX 4090/A100 or Apple M4 Max
-
-### Recommended Requirements
-- **RAM**: 128GB
-- **VRAM**: 80GB+ (for concurrent model loading)
-- **GPU**: NVIDIA H100 or Apple M4 Max with 128GB unified memory
-- **Storage**: NVMe SSD with 500GB+ free space
-
-## Advanced Usage
-
-### Custom Model Integration
-
-Models are configured in `src/core/multi_model_system.py`:
-
-```python
-self.models = {
-    "DeepSeek-R1 (Reasoning)": "deepseek-r1:70b",
-    "Qwen2.5-Coder (Implementation)": "qwen2.5-coder:32b",
-    "Qwen2.5 (Math/Physics)": "qwen2.5:32b",
-    "Your Custom Model": "your-model-name"  # Add custom models here
-}
-```
-
-### Model Routing
-
-HRM automatically routes tasks to appropriate models:
-- **Reasoning/debugging**: DeepSeek-R1:70B
-- **Code implementation**: Qwen2.5-Coder:32B
-- **Math/physics**: Qwen2.5:32B or Qwen2-Math
-- **Task orchestration**: HRM
-
-### Extending File Type Support
-
-Modify `editor_ui.py` to add new language modes:
-
-```python
-language_map = {
-    '.py': 'python',
-    '.your_ext': 'your_language_mode',  # Add this
-    # ... existing mappings
-}
-```
-
-## Contributing
-
-1. **Fork the repository**
-2. **Create a feature branch**: `git checkout -b feature/new-feature`
-3. **Test your changes** thoroughly
-4. **Submit a pull request**
+Sessions are saved to `projects/{project}/reasoning/` with filenames like:
+- `faust_20241204_143052.md` - FAUST mode session
+- `juce_20241204_150312.md` - JUCE mode session
+- `physics_20241204_161523.md` - Physics mode session
 
 ## Additional Resources
 
-- [HRM - Hierarchical Reasoning Model](https://github.com/sapientinc/HRM)
 - [Ollama Documentation](https://github.com/ollama/ollama)
 - [FAUST Documentation](https://faustdoc.grame.fr/)
+- [JUCE Documentation](https://juce.com/learn/documentation)
 - [Streamlit Documentation](https://docs.streamlit.io/)
-- [LangChain Documentation](https://python.langchain.com/)
-
-## Reporting Issues
-
-If you encounter problems:
-
-1. **Check the console** for error messages
-2. **Verify model installation** with `ollama list`
-3. **Create an issue** with:
-   - System information
-   - Error messages
-   - Steps to reproduce
-   - Screenshots (if applicable)
 
 ---
 
-The integrated code editor enables seamless iteration on projects with AI assistance while maintaining full control over the codebase.
+*Updated: December 2024 - v2.0*

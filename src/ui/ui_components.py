@@ -1,6 +1,6 @@
 import streamlit as st
 from pathlib import Path
-from ..core.prompts import MODEL_INFO
+from ..core.prompts import MODEL_INFO, AGENT_MODES
 import re
 
 
@@ -286,8 +286,7 @@ def close_all_files():
 
 # Keep all other functions the same...
 def render_model_selection(glm_system):
-    """Render hybrid model selection section with routing modes"""
-    # Add styling for better visibility
+    """Render model and agent mode selection"""
     st.markdown(
         """
     <style>
@@ -303,24 +302,13 @@ def render_model_selection(glm_system):
         color: #fab387 !important;
         font-size: 1.4rem !important;
         margin-bottom: 15px !important;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #45475a;
     }
-    .routing-mode {
+    .agent-mode-info {
         background-color: #45475a;
-        padding: 15px;
+        padding: 10px;
         border-radius: 8px;
-        border-left: 4px solid #89b4fa;
-        margin: 15px 0;
-        color: #cdd6f4;
-    }
-    .model-selection .stRadio label {
-        color: #cdd6f4 !important;
-        font-weight: 500 !important;
-    }
-    .model-selection .stSelectbox label {
-        color: #cdd6f4 !important;
-        font-weight: 600 !important;
+        margin-top: 10px;
+        border-left: 3px solid #fab387;
     }
     </style>
     """,
@@ -329,78 +317,54 @@ def render_model_selection(glm_system):
 
     with st.container():
         st.markdown('<div class="model-selection">', unsafe_allow_html=True)
-        
-        # Routing Mode Selection
-        st.markdown('<div class="routing-mode">', unsafe_allow_html=True)
-        st.subheader("🤖 Model Selection & Routing")
-        
-        col1, col2 = st.columns(2)
+        st.subheader("🤖 Model & Agent Selection")
+
+        col1, col2, col3 = st.columns(3)
+
         with col1:
-            routing_mode = st.radio(
-                "Routing Mode",
-                ["🚀 Auto (HRM Decides)", "🎯 Manual Selection", "💡 Assisted (See Recommendations)"],
-                index=0,
-                help="Choose how models are selected for your tasks"
-            )
-        
-        with col2:
-            use_context = st.checkbox(
-                "📚 Use Knowledge Base",
-                value=True,
-                help="Include uploaded documents in responses",
-            )
-            
-            # HRM Debug Mode
-            hrm_wrapper = getattr(glm_system, 'hrm_wrapper', None)
-            if hrm_wrapper:
-                debug_hrm = st.checkbox(
-                    "🔍 HRM Debug Mode",
-                    value=False,
-                    help="Show HRM task decomposition details in responses",
-                    key="hrm_debug_mode"
-                )
-            else:
-                debug_hrm = False
-        
-        # Convert routing mode to simple string
-        routing_mode_map = {
-            "🚀 Auto (HRM Decides)": "auto",
-            "🎯 Manual Selection": "manual", 
-            "💡 Assisted (See Recommendations)": "assisted"
-        }
-        routing_mode_key = routing_mode_map[routing_mode]
-        
-        # Model Selection based on routing mode
-        if routing_mode == "🎯 Manual Selection":
             model_options = list(glm_system.models.keys())
             selected_model = st.selectbox(
                 "Choose Model",
                 options=model_options,
-                help="DeepSeek-R1 for reasoning/debugging, Qwen2.5-Coder for implementation, Qwen2.5 for math/physics",
+                index=0,  # Default to DeepSeek
+                help="DeepSeek for reasoning (slower but smarter), Qwen for quick tasks (faster)",
             )
-            
-            # Show model info
-            if selected_model in MODEL_INFO:
-                st.info(MODEL_INFO[selected_model])
-                
-        else:
-            selected_model = "auto"
-            if routing_mode == "🚀 Auto (HRM Decides)":
-                hrm_status = "🧠 HRM will analyze your request and route to the optimal model automatically"
-                if getattr(glm_system, 'hrm_wrapper', None):
-                    device = getattr(glm_system.hrm_wrapper, 'device', 'unknown')
-                    if device == 'mps':
-                        hrm_status += " ⚡ (M4 Max MPS acceleration)"
-                    elif device == 'cuda':
-                        hrm_status += " 🚀 (CUDA acceleration)"
-                st.info(hrm_status)
-            else:  # Assisted mode
-                st.info("💡 HRM will analyze your request and show recommendations, but you can override")
-        
+            st.caption("🧠 **DeepSeek** - Complex tasks")
+            st.caption("⚡ **Qwen** - Quick tasks")
+
+        with col2:
+            # Agent mode selection
+            agent_options = list(AGENT_MODES.keys())
+            agent_labels = [f"{AGENT_MODES[a]['icon']} {a}" for a in agent_options]
+
+            selected_agent_idx = st.selectbox(
+                "Specialist Mode",
+                options=range(len(agent_options)),
+                format_func=lambda x: agent_labels[x],
+                index=0,  # Default to General
+                help="Choose domain-specific expertise",
+            )
+            selected_agent = agent_options[selected_agent_idx]
+
+            # Show agent description
+            agent_info = AGENT_MODES[selected_agent]
+            st.caption(f"*{agent_info['description']}*")
+
+        with col3:
+            use_context = st.checkbox(
+                "📚 Use Knowledge Base",
+                value=True,
+                help="Include FAUST/JUCE documentation in responses",
+            )
+
+            # Store selected agent in session state for save filename
+            st.session_state.selected_agent = selected_agent
+            st.session_state.agent_file_prefix = agent_info['file_prefix']
+
         st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        return selected_model, use_context, routing_mode_key, debug_hrm
+
+        # Return values (cleaned up - no more HRM references)
+        return selected_model, use_context, selected_agent
 
 
 def render_sidebar(glm_system):
@@ -554,53 +518,17 @@ def render_faust_docs_section(glm_system):
 
 
 def render_model_status(glm_system):
-    """Render model status section with HRM integration"""
+    """Render model status section - simplified without HRM"""
     st.subheader("🔧 System Status")
-    
-    # HRM Status Section
-    st.write("**🧠 HRM Integration:**")
-    hrm_wrapper = getattr(glm_system, 'hrm_wrapper', None)
-    if hrm_wrapper:
-        # Display HRM device status
-        device = getattr(hrm_wrapper, 'device', 'unknown')
-        if device == 'mps':
-            st.success("⚡ M4 Max MPS acceleration active")
-        elif device == 'cuda':
-            st.success("🚀 CUDA acceleration active")
-        elif device == 'cpu':
-            st.info("💻 CPU processing mode")
-        else:
-            st.warning(f"❓ Unknown device: {device}")
-        
-        # Display HRM availability
-        try:
-            # Check if HRM can decompose tasks
-            test_decomp = hrm_wrapper.decompose_task("test", context={})
-            if hasattr(test_decomp, 'subtasks'):
-                st.success("✅ HRM task decomposition ready")
-            else:
-                st.warning("⚠️ HRM using pattern-based fallback")
-        except Exception:
-            st.warning("⚠️ HRM using pattern-based fallback")
-            
-        # HRM configuration info
-        with st.expander("🔍 HRM Configuration", expanded=False):
-            st.write("**Architecture:** HRM ACT v1")
-            st.write("**Device:** " + device.upper())
-            st.write("**Caching:** Enabled" if getattr(hrm_wrapper, 'enable_caching', False) else "Disabled")
-    else:
-        st.error("❌ HRM not initialized")
-    
-    st.write("---")
-    
+
     # Ollama Model Status
-    st.write("**🤖 Ollama Models:**")
+    st.write("**🤖 Available Models:**")
     for model_name, model_id in glm_system.models.items():
         try:
             if model_name in glm_system._model_instances:
                 st.success(f"✅ {model_name}")
             else:
-                st.info(f"💤 {model_name} (not loaded)")
+                st.info(f"💤 {model_name} (not loaded yet)")
         except:
             st.error(f"❌ {model_name}")
 
@@ -614,7 +542,7 @@ def render_model_status(glm_system):
                 st.code(f"ollama pull {glm_system.models[model_name]}")
             else:
                 st.warning(f"{status_text} {model_name}")
-    
+
     # Knowledge Base Status
     st.write("---")
     st.write("**📚 Knowledge Base:**")
@@ -625,13 +553,11 @@ def render_model_status(glm_system):
         st.warning(kb_status["message"])
 
 
-def render_chat_interface(glm_system, selected_model, use_context, selected_project, routing_mode="manual", debug_hrm=False):
-    """Render main chat interface with hybrid routing support"""
-    if selected_model == "auto":
-        st.header(f"💬 Chat with AI Assistant (Auto-Routing)")
-    else:
-        st.header(f"💬 Chat with {selected_model}")
-    st.caption(f"Project: {selected_project} | Mode: {routing_mode.title()}")
+def render_chat_interface(glm_system, selected_model, use_context, selected_project, selected_agent="General"):
+    """Render main chat interface with specialist agent modes"""
+    agent_info = AGENT_MODES.get(selected_agent, AGENT_MODES["General"])
+    st.header(f"{agent_info['icon']} Chat with {selected_model}")
+    st.caption(f"Project: {selected_project} | Mode: **{selected_agent}**")
 
     # Project-based chat history
     chat_key = f"chat_history_{selected_model}_{selected_project}"
@@ -642,23 +568,76 @@ def render_chat_interface(glm_system, selected_model, use_context, selected_proj
 
     # 1. CHAT INPUT FIRST (at the top)
     render_chat_input(
-        glm_system, selected_model, use_context, selected_project, chat_key, routing_mode, debug_hrm
+        glm_system, selected_model, use_context, selected_project, chat_key, selected_agent
     )
 
     # Add some spacing
     st.write("---")
 
-    # 2. RECENT CONVERSATIONS (below input)
+    # 2. SUMMARIZATION TOOLS (uses Qwen for speed)
+    render_summarization_tools(glm_system, st.session_state[chat_key], selected_project)
+
+    st.write("---")
+
+    # 3. RECENT CONVERSATIONS (below input)
     render_recent_conversations(st.session_state[chat_key], selected_model)
 
-    # 3. FULL CHAT HISTORY (at the bottom)
+    # 4. FULL CHAT HISTORY (at the bottom)
     render_full_chat_history(st.session_state[chat_key], selected_model)
 
 
+def render_summarization_tools(glm_system, chat_history, selected_project):
+    """Render summarization tools using Qwen for speed"""
+    if not chat_history:
+        return
+
+    st.subheader("⚡ Quick Tools (Qwen - Fast)")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        if st.button("📝 Generate Title", help="Use Qwen to generate a chat title"):
+            with st.spinner("Generating title..."):
+                # Get chat content
+                chat_text = "\n".join([f"Q: {q}\nA: {a[:200]}" for q, a in chat_history[-3:]])
+                title = glm_system.generate_title(chat_text)
+                st.session_state.chat_title = title
+                st.success(f"**Title:** {title}")
+
+    with col2:
+        if st.button("⚡ Quick Summary", help="Summarize current chat session"):
+            with st.spinner("Summarizing..."):
+                chat_text = "\n".join([f"Q: {q}\nA: {a}" for q, a in chat_history])
+                summary = glm_system.quick_summarize(chat_text, max_words=100)
+                st.info(f"**Summary:** {summary}")
+
+    with col3:
+        if st.button("📤 Export Summary for Claude", help="Create context summary for Claude"):
+            with st.spinner("Creating context summary..."):
+                chat_text = "\n".join([f"Q: {q}\nA: {a}" for q, a in chat_history])
+                summary = glm_system.quick_summarize(chat_text, max_words=200)
+
+                formatted = f"""## Context from DeepSeek Session
+Project: {selected_project}
+
+### Summary
+{summary}
+
+---
+Please continue with this context and implement the discussed approach."""
+
+                st.code(formatted, language="markdown")
+                st.info("Copy above and paste into Claude Code")
+
+    # Show current title if set
+    if "chat_title" in st.session_state and st.session_state.chat_title:
+        st.caption(f"📌 Current Title: **{st.session_state.chat_title}**")
+
+
 def render_chat_input(
-    glm_system, selected_model, use_context, selected_project, chat_key, routing_mode="manual", debug_hrm=False
+    glm_system, selected_model, use_context, selected_project, chat_key, selected_agent="General"
 ):
-    """Render chat input section with enhanced context handling"""
+    """Render chat input section with specialist agent mode"""
     # Add styling for the input section
     st.markdown(
         """
@@ -789,97 +768,51 @@ def render_chat_input(
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # Handle send button - ENHANCED WITH CHAT HISTORY
+        # Handle send button
         if send_button and question:
             # Get current chat history
             current_history = st.session_state.get(chat_key, [])
 
-            with st.spinner(f"{selected_model} is thinking..."):
+            with st.spinner(f"🧠 {selected_model} is thinking..."):
                 # Show what context is being used
                 with st.expander("🔍 Context Details", expanded=False):
                     st.write(f"**Using Context:** {'Yes' if use_context else 'No'}")
-                    st.write(
-                        f"**Chat History Length:** {len(current_history)} exchanges"
-                    )
+                    st.write(f"**Chat History Length:** {len(current_history)} exchanges")
 
                     if use_context:
                         kb_status = glm_system.check_vectorstore_status()
                         st.write(f"**Knowledge Base:** {kb_status['message']}")
 
-                        if len(current_history) > 0:
-                            st.write("**Recent Topics:**")
-                            for i, (prev_q, _) in enumerate(current_history[-3:], 1):
-                                st.write(
-                                    f"  {i}. {prev_q[:80]}{'...' if len(prev_q) > 80 else ''}"
-                                )
-
-                # Call model with hybrid routing system
+                # Call model with agent mode
                 response_data = glm_system.generate_response(
                     prompt=question,
                     selected_model=selected_model,
-                    routing_mode=routing_mode,
                     use_context=use_context,
                     project_name=selected_project,
-                    chat_history=current_history,  # PASS CHAT HISTORY
-                    use_hrm_decomposition=True
+                    chat_history=current_history,
+                    agent_mode=selected_agent,
                 )
-                
+
                 response = response_data["response"]
                 routing_info = response_data.get("routing", {})
 
             # Add to chat history
             st.session_state[chat_key].append((question, response))
-            
-            # Display routing decision if available
-            if routing_info:
-                with st.expander("🔄 Routing Decision", expanded=debug_hrm):
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("Complexity", f"{routing_info.get('complexity_score', 0):.2f}")
-                    with col2:
-                        st.metric("Domain", routing_info.get('domain', 'general'))
-                    with col3:
-                        st.metric("Model Used", routing_info.get('selected_model', 'Unknown'))
-                    
-                    if routing_info.get('hrm_recommendation') != routing_info.get('selected_model'):
-                        st.info(f"💡 HRM recommended: {routing_info.get('hrm_recommendation')}")
-                    
-                    if routing_info.get('subtasks', 0) > 0:
-                        st.info(f"🧠 Complex task decomposed into {routing_info.get('subtasks')} subtasks")
-                        
-                        # Show HRM debug details if enabled
-                        if debug_hrm and routing_info.get('subtasks', 0) > 0:
-                            st.write("**🔍 HRM Debug Information:**")
-                            st.json({
-                                "execution_time": routing_info.get('execution_time', 0),
-                                "confidence": routing_info.get('confidence', 0),
-                                "routing_reason": routing_info.get('routing_reason', ''),
-                                "mode": routing_info.get('mode', ''),
-                            })
-                    
-                    if routing_info.get('fallback_used'):
-                        st.warning(f"⚠️ Fallback used: {routing_info.get('routing_reason')}")
-                        
-                    # HRM device status in debug mode
-                    if debug_hrm:
-                        hrm_wrapper = getattr(glm_system, 'hrm_wrapper', None)
-                        if hrm_wrapper:
-                            device = getattr(hrm_wrapper, 'device', 'unknown')
-                            st.write(f"**🖥️ HRM Device:** {device.upper()}")
-                            if device == 'mps':
-                                st.success("⚡ M4 Max MPS acceleration used")
 
-            # Save to project file  
-            actual_model_used = routing_info.get('selected_model', selected_model) if routing_info else selected_model
+            # Display model used
+            actual_model = routing_info.get('selected_model', selected_model)
+            st.success(f"✅ Response from {actual_model}")
+
+            # Save to project file
             glm_system.project_manager.save_chat_to_project(
-                selected_project, actual_model_used, question, response
+                selected_project, actual_model, question, response
             )
 
             st.rerun()
 
 
 def render_recent_conversations(chat_history, selected_model):
-    """Render recent conversations section"""
+    """Render recent conversations section with export buttons"""
     # Display recent chat (last 5 exchanges) - collapsible
     recent_chats = chat_history[-5:]  # Show last 5 exchanges
 
@@ -923,8 +856,66 @@ def render_recent_conversations(chat_history, selected_model):
                 else:
                     st.write(answer)
 
-                # Add metadata footer with actions
-                col1, col2, col3, col4 = st.columns(4)
+                # Export buttons section
+                st.markdown("---")
+                st.markdown("**📤 Export Options:**")
+                col1, col2, col3 = st.columns(3)
+
+                msg_id = len(recent_chats) - i + 1
+
+                with col1:
+                    if st.button("📋 Copy Response", key=f"copy_{msg_id}"):
+                        st.session_state.clipboard_content = answer
+                        st.success("✓ Copied! Paste into Claude Code")
+
+                with col2:
+                    if st.button("💾 Save to Project", key=f"save_{msg_id}"):
+                        from datetime import datetime
+                        from pathlib import Path
+
+                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        project = st.session_state.get("current_project", "Default")
+                        agent_prefix = st.session_state.get("agent_file_prefix", "general")
+                        agent_name = st.session_state.get("selected_agent", "General")
+
+                        save_dir = Path(f"./projects/{project}/reasoning")
+                        save_dir.mkdir(parents=True, exist_ok=True)
+
+                        # Include agent mode in filename for easy distinction
+                        save_path = save_dir / f"{agent_prefix}_{timestamp}.md"
+
+                        content = f"""# {agent_name} Specialist Session
+Date: {datetime.now().strftime("%Y-%m-%d %H:%M")}
+Project: {project}
+Model: {selected_model}
+Agent Mode: {agent_name}
+
+## Query
+{question}
+
+## Response
+{answer}
+
+---
+*Export this to Claude Code for implementation*
+"""
+                        save_path.write_text(content)
+                        st.success(f"✓ Saved to {save_path.name}")
+
+                with col3:
+                    if st.button("📤 Format for Claude", key=f"format_{msg_id}"):
+                        formatted = f"""Based on this reasoning from DeepSeek:
+
+{answer}
+
+---
+Please implement the above approach."""
+                        st.code(formatted, language="markdown")
+                        st.info("Copy above and paste into Claude Code")
+
+                # Add metadata footer
+                st.markdown("---")
+                col1, col2, col3 = st.columns(3)
                 with col1:
                     st.caption(f"📝 Q: {len(question)} chars")
                 with col2:
@@ -932,28 +923,14 @@ def render_recent_conversations(chat_history, selected_model):
                 with col3:
                     # Detect content type
                     if "```" in answer:
-                        st.caption("💻 Code")
+                        st.caption("💻 Contains Code")
                     elif any(
                         keyword in answer.lower()
                         for keyword in ["faust", "dsp", "audio"]
                     ):
                         st.caption("🎵 Audio/DSP")
-                    elif "http" in answer:
-                        st.caption("🔗 Links")
                     else:
                         st.caption("💬 Text")
-                with col4:
-                    # Quick copy button for code blocks
-                    if "```" in answer:
-                        if st.button(
-                            "📋 Copy",
-                            key=f"copy_recent_{len(recent_chats) - i + 1}",
-                            help="Copy code to clipboard",
-                        ):
-                            # Note: Actual clipboard functionality would need additional setup
-                            st.success(
-                                "Code copied to clipboard! (feature coming soon)"
-                            )
 
             # Add spacing between exchanges
             if i < len(recent_chats):
