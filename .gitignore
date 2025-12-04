@@ -186,3 +186,13 @@ pip-delete-this-directory.txt
 # Ollama models (if stored locally)
 .ollama/
 ollama_models/
+
+# ChromaDB database (auto-generated)
+chroma_db/
+
+# Backup folders
+src_backup/
+*_backup/
+
+# Project metadata (auto-generated)
+projects/*/project_metadata.json
