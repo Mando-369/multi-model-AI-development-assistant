@@ -116,6 +116,169 @@ def render_agent_suggestion_approval(glm_system, project_name: str, agent_mode: 
             st.rerun()
 
 
+def _read_file_for_attachment(file_path: str, project_path: Path) -> Optional[str]:
+    """Read a file for attachment to chat context."""
+    try:
+        # Try as absolute path first
+        path = Path(file_path)
+        if path.is_absolute() and path.exists():
+            return path.read_text(encoding='utf-8', errors='replace')
+
+        # Try relative to project
+        if project_path:
+            relative_path = project_path / file_path
+            if relative_path.exists():
+                return relative_path.read_text(encoding='utf-8', errors='replace')
+
+        # Try relative to current working directory
+        cwd_path = Path.cwd() / file_path
+        if cwd_path.exists():
+            return cwd_path.read_text(encoding='utf-8', errors='replace')
+
+        return None
+    except Exception as e:
+        print(f"Error reading file for attachment: {e}")
+        return None
+
+
+def _render_file_browser_popup(glm_system, selected_project: str, attached_file_key: str):
+    """Render an improved file browser for selecting files to attach."""
+    st.markdown("---")
+
+    # Supported file extensions
+    CODE_EXTENSIONS = {
+        '.py', '.js', '.ts', '.tsx', '.jsx', '.cpp', '.c', '.h', '.hpp', '.java',
+        '.rs', '.go', '.rb', '.php', '.swift', '.kt', '.scala', '.dsp', '.faust',
+        '.md', '.txt', '.json', '.yaml', '.yml', '.toml', '.xml', '.html', '.css',
+        '.scss', '.sql', '.sh', '.bash', '.zsh', '.cmake', '.make', '.gradle'
+    }
+
+    # Get/set browse directory - use a global key not tied to project for navigation
+    browse_dir_key = "file_browser_current_dir"
+    project_path = glm_system.project_manager.get_project_path(selected_project)
+    default_path = str(project_path) if project_path else str(Path.cwd())
+
+    # Initialize only if not set
+    if browse_dir_key not in st.session_state:
+        st.session_state[browse_dir_key] = default_path
+
+    browse_path = Path(st.session_state[browse_dir_key])
+
+    # Header with current path (shows actual value from session state)
+    st.markdown(f"**📂 File Browser**")
+    st.info(f"📍 Current: {st.session_state[browse_dir_key]}")
+
+    # Navigation buttons
+    col_up, col_home, col_project = st.columns(3)
+
+    with col_up:
+        if st.button("⬆️ Parent", key="nav_up_btn", use_container_width=True):
+            parent = browse_path.parent
+            if parent.exists():
+                st.session_state[browse_dir_key] = str(parent)
+                st.rerun()
+
+    with col_home:
+        if st.button("🏠 Home", key="nav_home_btn", use_container_width=True):
+            st.session_state[browse_dir_key] = str(Path.home())
+            st.rerun()
+
+    with col_project:
+        if st.button("📁 Project", key="nav_project_btn", use_container_width=True):
+            st.session_state[browse_dir_key] = default_path
+            st.rerun()
+
+    # Manual path input
+    col_input, col_go = st.columns([4, 1])
+    with col_input:
+        manual_path = st.text_input(
+            "Go to path:",
+            value="",
+            placeholder=str(browse_path),
+            key="manual_path_input",
+            label_visibility="collapsed"
+        )
+    with col_go:
+        if st.button("Go", key="go_path_btn", use_container_width=True):
+            if manual_path and Path(manual_path).exists():
+                st.session_state[browse_dir_key] = manual_path
+                st.session_state["manual_path_input"] = ""
+                st.rerun()
+
+    st.markdown("---")
+
+    # List directory contents
+    if browse_path.exists() and browse_path.is_dir():
+        try:
+            # Separate directories and files
+            dirs = []
+            files = []
+
+            for item in sorted(browse_path.iterdir(), key=lambda x: x.name.lower()):
+                if item.name.startswith('.'):
+                    continue
+                if item.is_dir():
+                    dirs.append(item)
+                elif item.suffix.lower() in CODE_EXTENSIONS:
+                    # Get file size
+                    try:
+                        size = item.stat().st_size
+                        if size < 1024:
+                            size_str = f"{size} B"
+                        elif size < 1024 * 1024:
+                            size_str = f"{size // 1024} KB"
+                        else:
+                            size_str = f"{size // (1024 * 1024)} MB"
+                    except:
+                        size_str = "?"
+                    files.append((item, size_str))
+
+            # Generate unique key base from current path to avoid key conflicts
+            path_id = abs(hash(str(browse_path))) % 1000000
+
+            # Show directories first (in scrollable container)
+            if dirs:
+                st.markdown(f"**Folders:** ({len(dirs)})")
+                dir_cols = st.columns(3)
+                for i, d in enumerate(dirs):
+                    with dir_cols[i % 3]:
+                        if st.button(f"📁 {d.name}", key=f"d{i}_{path_id}", use_container_width=True):
+                            st.session_state[browse_dir_key] = str(d)
+                            st.rerun()
+
+            # Show files (no limit - page scrolls naturally)
+            if files:
+                st.markdown(f"**Files:** ({len(files)})")
+                for i, (f, size_str) in enumerate(files):
+                    col_name, col_size, col_btn = st.columns([3, 1, 1])
+                    with col_name:
+                        st.text(f"📄 {f.name}")
+                    with col_size:
+                        st.caption(size_str)
+                    with col_btn:
+                        if st.button("Select", key=f"f{i}_{path_id}"):
+                            # Read file content and attach
+                            content = _read_file_for_attachment(str(f), None)
+                            if content:
+                                st.session_state[attached_file_key] = str(f)
+                                st.session_state[f"attached_content_{selected_project}"] = content
+                            st.session_state[f"show_file_browser_{selected_project}"] = False
+                            st.rerun()
+
+            if not dirs and not files:
+                st.info("No supported files in this directory")
+
+        except PermissionError:
+            st.error("❌ Permission denied")
+    else:
+        st.warning("⚠️ Directory not found")
+
+    st.markdown("---")
+    if st.button("❌ Close Browser", key="close_browser_btn", use_container_width=True):
+        st.session_state[f"show_file_browser_{selected_project}"] = False
+        st.rerun()
+
+
 def get_code_language_from_content(content: str) -> str:
     """Detect programming language from code content"""
     # FAUST detection
@@ -899,6 +1062,81 @@ def render_chat_input(
             else:
                 st.warning("🧠 Context: OFF")
 
+        # File attachment section
+        attached_file_key = f"attached_file_{selected_project}"
+        attached_content_key = f"attached_content_{selected_project}"
+        show_browser_key = f"show_file_browser_{selected_project}"
+
+        # Keep expander open if file attached OR browser is open
+        expander_open = bool(st.session_state.get(attached_file_key)) or st.session_state.get(show_browser_key, False)
+
+        with st.expander("📎 Attach File", expanded=expander_open):
+            st.caption("Attach a file from your project for the model to read")
+
+            # Get project path for file browsing
+            project_path = glm_system.project_manager.get_project_path(selected_project)
+
+            col_path, col_browse = st.columns([3, 1])
+
+            with col_path:
+                file_path_input = st.text_input(
+                    "File path:",
+                    value=st.session_state.get(attached_file_key, ""),
+                    placeholder="e.g., src/main.py or paste full path",
+                    key=f"file_path_input_{selected_project}",
+                    help="Enter relative path from project or absolute path"
+                )
+
+            with col_browse:
+                st.write("")  # Spacing
+                if st.button("📂 Browse", key=f"browse_file_{selected_project}"):
+                    st.session_state[show_browser_key] = True
+                    st.rerun()
+
+            # Simple file browser
+            if st.session_state.get(show_browser_key):
+                _render_file_browser_popup(glm_system, selected_project, attached_file_key)
+
+            # Attach/Clear buttons
+            col_attach, col_clear, col_status = st.columns([1, 1, 2])
+
+            with col_attach:
+                if st.button("📎 Attach", key=f"attach_btn_{selected_project}"):
+                    if file_path_input:
+                        content = _read_file_for_attachment(file_path_input, project_path)
+                        if content:
+                            st.session_state[attached_file_key] = file_path_input
+                            st.session_state[attached_content_key] = content
+                            st.success(f"✅ Attached!")
+                            st.rerun()
+                        else:
+                            st.error("❌ Could not read file")
+
+            with col_clear:
+                if st.button("🗑️ Clear", key=f"clear_attach_{selected_project}"):
+                    st.session_state[attached_file_key] = ""
+                    st.session_state[attached_content_key] = ""
+                    st.rerun()
+
+            with col_status:
+                if st.session_state.get(attached_content_key):
+                    content = st.session_state[attached_content_key]
+                    lines = content.count('\n') + 1
+                    st.success(f"📄 {lines} lines attached")
+
+            # Show attached file name and preview
+            if st.session_state.get(attached_file_key):
+                file_path = st.session_state[attached_file_key]
+                file_name = Path(file_path).name
+                st.info(f"📎 **{file_name}**")
+                st.caption(f"Full path: {file_path}")
+
+            if st.session_state.get(attached_content_key):
+                with st.expander("Preview attached content", expanded=False):
+                    # Full content in scrollable container (auto-detect syntax)
+                    with st.container(height=800):
+                        st.code(st.session_state[attached_content_key])
+
         # Handle clear input flag
         default_value = ""
         if st.session_state.get("clear_chat_input", False):
@@ -976,11 +1214,28 @@ def render_chat_input(
             # Get current chat history
             current_history = st.session_state.get(chat_key, [])
 
+            # Build prompt with attached file if present
+            final_prompt = question
+            attached_content = st.session_state.get(attached_content_key, "")
+            attached_file = st.session_state.get(attached_file_key, "")
+
+            if attached_content:
+                final_prompt = f"""I'm attaching a file for you to read and reference.
+
+=== ATTACHED FILE: {attached_file} ===
+{attached_content}
+=== END OF ATTACHED FILE ===
+
+My question/request:
+{question}"""
+
             with st.spinner(f"🧠 {selected_model} is thinking..."):
                 # Show what context is being used
                 with st.expander("🔍 Context Details", expanded=False):
                     st.write(f"**Using Context:** {'Yes' if use_context else 'No'}")
                     st.write(f"**Chat History Length:** {len(current_history)} exchanges")
+                    if attached_file:
+                        st.write(f"**Attached File:** {attached_file}")
 
                     if use_context:
                         kb_status = glm_system.check_vectorstore_status()
@@ -988,7 +1243,7 @@ def render_chat_input(
 
                 # Call model with agent mode
                 response_data = glm_system.generate_response(
-                    prompt=question,
+                    prompt=final_prompt,
                     selected_model=selected_model,
                     use_context=use_context,
                     project_name=selected_project,
@@ -1232,8 +1487,16 @@ def render_recent_conversations(chat_history, selected_model):
 
                 with col1:
                     if st.button("📋 Copy Response", key=f"copy_{msg_id}"):
-                        st.session_state.clipboard_content = answer
-                        st.success("✓ Copied! Paste into Claude Code")
+                        st.session_state[f"show_copy_{msg_id}"] = True
+                        st.rerun()
+
+                # Show copyable code block if requested
+                if st.session_state.get(f"show_copy_{msg_id}"):
+                    st.markdown("**📋 Copy from here (use copy button top-right):**")
+                    st.code(answer, language="markdown")
+                    if st.button("✖️ Hide", key=f"hide_copy_{msg_id}"):
+                        st.session_state[f"show_copy_{msg_id}"] = False
+                        st.rerun()
 
                 with col2:
                     if st.button("💾 Save to Project", key=f"save_{msg_id}"):

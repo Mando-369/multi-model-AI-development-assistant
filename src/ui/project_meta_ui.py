@@ -45,16 +45,24 @@ def render_quick_actions(glm_system, project_name: str):
     """Render quick action buttons."""
     st.subheader("⚡ Quick Actions")
 
-    # Session state key for summary
+    # Session state keys
     summary_key = f"project_summary_{project_name}"
+    init_result_key = f"init_agents_result_{project_name}"
 
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
 
     with col1:
+        if st.button("🚀 Initialize Agents", help="Create initial context for each agent based on PROJECT_META"):
+            with st.spinner("Initializing agents..."):
+                result = initialize_all_agents(glm_system, project_name)
+                st.session_state[init_result_key] = result
+                st.rerun()
+
+    with col2:
         if st.button("🔄 Sync from Agents", help="Synthesize all agent metas into PROJECT_META"):
             render_sync_dialog(glm_system, project_name)
 
-    with col2:
+    with col3:
         if st.button("📊 Generate Summary", help="Create exportable project summary"):
             with st.spinner("Generating summary..."):
                 summary = _generate_summary_content(glm_system, project_name)
@@ -62,12 +70,24 @@ def render_quick_actions(glm_system, project_name: str):
                     st.session_state[summary_key] = summary
                     st.rerun()
 
-    with col3:
+    with col4:
         if st.button("📤 Export Queue", help="Show items ready for Claude Code"):
             show_export_queue(glm_system, project_name)
 
-    with col4:
+    with col5:
         if st.button("🔃 Refresh", help="Reload PROJECT_META.md"):
+            st.rerun()
+
+    # Display initialization result if available
+    if st.session_state.get(init_result_key):
+        result = st.session_state[init_result_key]
+        st.write("---")
+        if result["success"]:
+            st.success(f"✅ Initialized {result['count']} agents: {', '.join(result['agents'])}")
+        else:
+            st.error(f"❌ Failed to initialize agents: {result.get('error', 'Unknown error')}")
+        if st.button("Dismiss", key="dismiss_init_result"):
+            st.session_state[init_result_key] = None
             st.rerun()
 
     # Display summary OUTSIDE columns (full width) if available
@@ -157,8 +177,14 @@ def render_orchestrator_chat(glm_system, project_name: str):
     # Orchestrator chat history (separate from main chat)
     chat_key = f"orchestrator_chat_{project_name}"
     suggestion_key = f"orchestrator_suggestion_{project_name}"
+    loaded_key = f"orchestrator_loaded_{project_name}"
+
+    # Load saved chats from file on first access
     if chat_key not in st.session_state:
-        st.session_state[chat_key] = []
+        saved_chats = glm_system.project_manager.load_project_chats(project_name, "Orchestrator")
+        st.session_state[chat_key] = saved_chats if saved_chats else []
+        st.session_state[loaded_key] = True
+
     if suggestion_key not in st.session_state:
         st.session_state[suggestion_key] = None
 
@@ -184,7 +210,7 @@ def render_orchestrator_chat(glm_system, project_name: str):
     with col1:
         send_disabled = not question.strip()
         if st.button("🚀 Send", disabled=send_disabled, key=f"orchestrator_send_{project_name}"):
-            with st.spinner("Orchestrator thinking..."):
+            with st.spinner(f"🧠 {selected_model} (Orchestrator) thinking..."):
                 # Get response from Orchestrator agent
                 result = glm_system.generate_response(
                     prompt=question,
@@ -231,14 +257,15 @@ def render_orchestrator_chat(glm_system, project_name: str):
     if st.session_state[suggestion_key]:
         render_suggestion_approval(glm_system, project_name, suggestion_key)
 
-    # Display recent exchanges
+    # Display all exchanges (no limit)
     if st.session_state[chat_key]:
         st.write("---")
-        st.caption("Recent exchanges:")
-        for i, (q, a) in enumerate(reversed(st.session_state[chat_key][-3:])):
-            with st.expander(f"Q: {q[:50]}...", expanded=(i == 0)):
+        st.caption(f"All exchanges ({len(st.session_state[chat_key])} total):")
+        for i, (q, a) in enumerate(reversed(st.session_state[chat_key])):
+            with st.expander(f"Q{len(st.session_state[chat_key]) - i}: {q[:50]}...", expanded=(i == 0)):
                 st.markdown(f"**Question:** {q}")
-                st.markdown(f"**Response:** {a}")
+                st.markdown("**Response:**")
+                st.code(a, language="markdown")
 
 
 def generate_meta_suggestion(glm_system, project_name: str, chat_history: list) -> Optional[str]:
@@ -477,6 +504,89 @@ Format for easy copy-paste."""
     if llm:
         return llm.invoke(prompt)
     return None
+
+
+def initialize_all_agents(glm_system, project_name: str) -> dict:
+    """Initialize context files for all specialist agents based on PROJECT_META.md.
+
+    Creates initial context for each agent (FAUST, JUCE, Math, Physics, General)
+    tailored to their specialty based on the project's vision and roadmap.
+
+    Returns:
+        dict with 'success', 'count', 'agents', and optionally 'error' keys
+    """
+    try:
+        project_meta = glm_system.project_meta_manager.read_project_meta(project_name)
+        if not project_meta or len(project_meta.strip()) < 100:
+            return {
+                "success": False,
+                "error": "PROJECT_META.md is empty or too short. Fill in the vision and roadmap first."
+            }
+
+        # Agents to initialize (excluding Orchestrator - it manages, doesn't do work)
+        agents_to_init = ["General", "FAUST", "JUCE", "Math", "Physics"]
+        initialized = []
+
+        llm = glm_system.get_model_instance("Qwen2.5:32B (Fast)")
+        if not llm:
+            return {"success": False, "error": "Could not get Qwen model"}
+
+        # Get agent modes for specialization info
+        agent_modes = AGENT_MODES
+
+        for agent_name in agents_to_init:
+            if agent_name not in agent_modes:
+                continue
+
+            agent_info = agent_modes[agent_name]
+            file_prefix = agent_info["file_prefix"]
+            description = agent_info["description"]
+
+            prompt = f"""Based on this project, create an initial context file for the {agent_name} specialist agent.
+
+PROJECT_META.md:
+{project_meta}
+
+AGENT SPECIALTY:
+{description}
+
+TASK:
+Create a focused context file (~200-300 words) that helps the {agent_name} agent understand:
+1. What aspects of this project relate to their specialty
+2. Specific tasks or challenges they may be asked about
+3. Any constraints or decisions that affect their domain
+4. Key files or components they should be aware of
+
+If this project doesn't seem relevant to {agent_name}'s specialty, create a brief note explaining that and suggesting they may not be the primary agent for this project.
+
+Format as markdown with clear sections. Start with "# {agent_name} Context for [Project Name]"."""
+
+            try:
+                context = llm.invoke(prompt)
+                if context:
+                    # Save to agent context file
+                    agents_dir = glm_system.project_meta_manager.projects_dir / project_name / "agents"
+                    agents_dir.mkdir(parents=True, exist_ok=True)
+
+                    context_file = agents_dir / f"{file_prefix}_context.md"
+                    context_file.write_text(context.strip(), encoding="utf-8")
+                    initialized.append(agent_name)
+            except Exception as e:
+                print(f"Error initializing {agent_name}: {e}")
+                continue
+
+        if initialized:
+            return {
+                "success": True,
+                "count": len(initialized),
+                "agents": initialized
+            }
+        else:
+            return {"success": False, "error": "No agents could be initialized"}
+
+    except Exception as e:
+        print(f"Error in initialize_all_agents: {e}")
+        return {"success": False, "error": str(e)}
 
 
 def generate_project_summary(glm_system, project_name: str):
