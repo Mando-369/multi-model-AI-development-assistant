@@ -15,6 +15,51 @@ from .context_enhancer import ContextEnhancer, enhance_vectorstore_retrieval
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 
 
+def get_agent_meta_path(project_name: str, agent_mode: str) -> Path:
+    """Get path to agent's meta file for a project."""
+    agents_dir = PROJECT_ROOT / "projects" / project_name / "agents"
+    agents_dir.mkdir(parents=True, exist_ok=True)
+    return agents_dir / f"{agent_mode.lower()}_context.md"
+
+
+def is_meta_question(question: str) -> bool:
+    """Detect meta/identity questions that shouldn't load project context.
+
+    These are questions about the model itself, not about coding tasks.
+    Loading project context for these causes pollution and wrong answers.
+    """
+    q = question.lower().strip()
+
+    # Identity questions
+    identity_patterns = [
+        "who are you", "what are you", "who am i talking to",
+        "introduce yourself", "tell me about yourself",
+        "what's your name", "what is your name",
+    ]
+
+    # Capability questions
+    capability_patterns = [
+        "what can you do", "what are you capable of",
+        "what's your context window", "what is your context window",
+        "how many tokens", "what model are you",
+        "what are your capabilities", "what are your limitations",
+    ]
+
+    # Help questions
+    help_patterns = [
+        "how do i use you", "how does this work",
+        "help me get started", "what should i know",
+    ]
+
+    all_patterns = identity_patterns + capability_patterns + help_patterns
+
+    for pattern in all_patterns:
+        if pattern in q:
+            return True
+
+    return False
+
+
 
 class MultiModelGLMSystem:
     def __init__(self):
@@ -223,6 +268,122 @@ Context Summary:"""
         except Exception as e:
             return f"Error summarizing: {e}"
 
+    def read_agent_meta(self, project_name: str, agent_mode: str) -> str:
+        """Read agent's meta context file.
+
+        Returns the content of the meta file, or empty string if not exists.
+        """
+        meta_path = get_agent_meta_path(project_name, agent_mode)
+        if meta_path.exists():
+            try:
+                return meta_path.read_text(encoding="utf-8")
+            except Exception as e:
+                print(f"❌ Error reading agent meta: {e}")
+                return ""
+        return ""
+
+    def save_agent_meta(self, project_name: str, agent_mode: str, content: str) -> bool:
+        """Save manually edited agent meta file.
+
+        Returns True if saved successfully.
+        """
+        try:
+            meta_path = get_agent_meta_path(project_name, agent_mode)
+            meta_path.write_text(content, encoding="utf-8")
+            print(f"✅ Saved {agent_mode} agent meta for {project_name}")
+            return True
+        except Exception as e:
+            print(f"❌ Error saving agent meta: {e}")
+            return False
+
+    def clear_agent_meta(self, project_name: str, agent_mode: str) -> bool:
+        """Clear/reset agent meta file.
+
+        Returns True if cleared successfully.
+        """
+        try:
+            meta_path = get_agent_meta_path(project_name, agent_mode)
+            if meta_path.exists():
+                meta_path.unlink()
+                print(f"🗑️ Cleared {agent_mode} agent meta for {project_name}")
+            return True
+        except Exception as e:
+            print(f"❌ Error clearing agent meta: {e}")
+            return False
+
+    def update_agent_meta(
+        self,
+        project_name: str,
+        agent_mode: str,
+        question: str,
+        answer: str,
+    ) -> bool:
+        """Update agent's meta context file using Qwen (fast).
+
+        Qwen analyzes the current exchange and updates the meta file
+        with relevant context for future questions.
+        """
+        try:
+            meta_path = get_agent_meta_path(project_name, agent_mode)
+            current_meta = self.read_agent_meta(project_name, agent_mode)
+
+            # Get agent config for context
+            agent_config = AGENT_MODES.get(agent_mode, AGENT_MODES["General"])
+
+            # Build the update prompt for Qwen
+            # 2000 words allows detailed context while staying within model limits
+            # (~3000 tokens, small fraction of 32K+ context windows)
+            prompt = f"""You are updating a context summary file for a {agent_mode} coding assistant.
+
+CURRENT CONTEXT FILE:
+{current_meta if current_meta else "(Empty - this is a new session)"}
+
+NEW EXCHANGE:
+User: {question[:1500]}
+Assistant: {answer[:3000]}
+
+TASK:
+Update the context file to include relevant information from this exchange.
+Keep comprehensive but focused (max 2000 words).
+Preserve important code snippets and technical details.
+Structure it as:
+
+# {agent_mode} Agent Context
+
+## Current Focus
+(What the user is currently working on - be specific)
+
+## Key Decisions
+(Important technical choices made with reasoning)
+
+## Active Problems
+(Open questions or issues being solved)
+
+## Important Code/Patterns
+(Key code snippets, algorithms, or patterns discussed - preserve these fully)
+
+## Technical Notes
+(Architecture decisions, performance considerations, dependencies)
+
+## Session History
+(Brief summary of conversation flow and topics covered)
+
+Return ONLY the updated context file content, nothing else."""
+
+            llm = self.get_model_instance("Qwen2.5:32B (Fast)")
+            if llm:
+                updated_meta = llm.invoke(prompt)
+                meta_path.write_text(updated_meta.strip(), encoding="utf-8")
+                print(f"✅ Updated {agent_mode} agent meta for {project_name}")
+                return True
+            else:
+                print("⚠️ Qwen not available for meta update")
+                return False
+
+        except Exception as e:
+            print(f"❌ Error updating agent meta: {e}")
+            return False
+
     def chat_with_model(
         self,
         question: str,
@@ -247,85 +408,38 @@ Context Summary:"""
             agent_config = AGENT_MODES.get(agent_mode, AGENT_MODES["General"])
             agent_prompt_addon = agent_config.get("system_prompt_addon", "")
 
-            # Build enhanced context if enabled
-            if use_context:
+            # Check for meta/identity questions - skip context to avoid pollution
+            is_meta = is_meta_question(question)
+            if is_meta:
+                print("ℹ️ Meta question detected - skipping project/KB context to avoid pollution")
+
+            # Build context using agent meta file (fast, focused, no pollution)
+            if use_context and not is_meta:
                 context_parts = []
 
-                # 0. Add agent mode context if not General
+                # 1. Add agent system prompt (domain expertise)
                 if agent_prompt_addon:
-                    context_parts.append(f"=== SPECIALIST MODE ===\n{agent_prompt_addon}")
+                    context_parts.append(f"=== {agent_mode.upper()} SPECIALIST MODE ===\n{agent_prompt_addon}")
                     print(f"🎯 Using {agent_mode} specialist mode")
 
-                # 1. Get enhanced knowledge base context
-                try:
-                    # Use agent mode to determine task type for retrieval
-                    task_type = agent_mode.lower() if agent_mode in ["FAUST", "JUCE"] else "general"
-                    question_lower = question.lower()
-                    if task_type == "general":
-                        if any(term in question_lower for term in ["faust", "dsp", "signal processing", "audio effect"]):
-                            task_type = "faust"
-                        elif any(term in question_lower for term in ["juce", "plugin", "vst", "au", "processor"]):
-                            task_type = "juce"
-                    
-                    # Get enhanced context
-                    enhanced_context = enhance_vectorstore_retrieval(self.vectorstore, question, task_type)
-                    
-                    if enhanced_context:
-                        context_parts.append(enhanced_context)
-                        print(f"✅ Enhanced context retrieved for {task_type} task")
-                    else:
-                        # Fallback to basic retrieval
-                        relevant_docs = self.vectorstore.similarity_search(question, k=5)
-                        if relevant_docs:
-                            kb_context = "\n\n".join(
-                                [doc.page_content for doc in relevant_docs]
-                            )
-                            context_parts.append(
-                                f"=== KNOWLEDGE BASE CONTEXT ===\n{kb_context[:3000]}"
-                            )
-                            print(f"✅ Found {len(relevant_docs)} relevant documents from knowledge base")
-                        else:
-                            print("⚠️ No relevant documents found in knowledge base")
-                except Exception as e:
-                    print(f"❌ Error accessing enhanced knowledge base: {e}")
+                # 2. Read agent meta file (pre-summarized context by Qwen)
+                # This is the KEY change - instead of loading raw KB, history, project data,
+                # we load the focused meta file that Qwen has pre-summarized
+                agent_meta = self.read_agent_meta(project_name, agent_mode)
+                if agent_meta:
+                    context_parts.append(f"=== PROJECT CONTEXT ({agent_mode}) ===\n{agent_meta}")
+                    print(f"✅ Loaded {agent_mode} agent meta ({len(agent_meta)} chars)")
+                else:
+                    print(f"ℹ️ No {agent_mode} agent meta yet - will be created after this exchange")
 
-                # 2. Get conversation history context
+                # 3. Only include last exchange for immediate continuity
+                # (More history is already summarized in the agent meta file)
                 if chat_history and len(chat_history) > 0:
-                    # Include last 5 exchanges for context
-                    recent_history = (
-                        chat_history[-5:] if len(chat_history) > 5 else chat_history
-                    )
-                    history_context = []
-
-                    for i, (prev_q, prev_a) in enumerate(recent_history, 1):
-                        history_context.append(f"Exchange {i}:")
-                        history_context.append(f"Human: {prev_q}")
-                        history_context.append(
-                            f"Assistant: {prev_a[:500]}{'...' if len(prev_a) > 500 else ''}"
-                        )
-                        history_context.append("")
-
-                    if history_context:
-                        context_parts.append(
-                            f"=== CONVERSATION HISTORY ===\n"
-                            + "\n".join(history_context)
-                        )
-                        print(
-                            f"✅ Including {len(recent_history)} previous exchanges for context"
-                        )
-
-                # 3. Get project context
-                try:
-                    project_context = self.project_manager.get_project_context(
-                        project_name
-                    )
-                    if project_context:
-                        context_parts.append(
-                            f"=== PROJECT CONTEXT ===\n{project_context}"
-                        )
-                        print(f"✅ Including project context from {project_name}")
-                except Exception as e:
-                    print(f"❌ Error getting project context: {e}")
+                    last_q, last_a = chat_history[-1]
+                    # Truncate to keep it focused
+                    last_exchange = f"Previous exchange:\nUser: {last_q[:300]}{'...' if len(last_q) > 300 else ''}\nAssistant: {last_a[:500]}{'...' if len(last_a) > 500 else ''}"
+                    context_parts.append(f"=== LAST EXCHANGE ===\n{last_exchange}")
+                    print("✅ Included last exchange for continuity")
 
                 # Build the enhanced prompt
                 if context_parts:
@@ -356,6 +470,22 @@ Reference the knowledge base information when relevant."""
             if model_name not in metadata.get("models_used", []):
                 metadata.setdefault("models_used", []).append(model_name)
                 self.project_manager.update_project_metadata(project_name, metadata)
+
+            # Update agent meta file with this exchange (async, using Qwen)
+            # Skip for meta questions (they don't add project context)
+            if not is_meta and project_name != "Default":
+                try:
+                    # Run meta update in background - don't block the response
+                    import threading
+                    update_thread = threading.Thread(
+                        target=self.update_agent_meta,
+                        args=(project_name, agent_mode, question, response),
+                        daemon=True
+                    )
+                    update_thread.start()
+                    print(f"📝 Started background meta update for {agent_mode}")
+                except Exception as e:
+                    print(f"⚠️ Could not start meta update: {e}")
 
             return response
 

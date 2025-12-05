@@ -65,6 +65,10 @@ class FileEditor:
             file_name = file_path.name
             file_str = str(file_path)
 
+            # Skip hidden files unless explicitly showing all
+            if file_name.startswith(".") and "*" not in include_patterns:
+                return False
+
             # Check exclude patterns first
             for pattern in exclude_patterns:
                 if pattern.startswith("*"):
@@ -74,6 +78,10 @@ class FileEditor:
                     return False
 
             # Check include patterns
+            # Handle "*" pattern explicitly - match everything
+            if "*" in include_patterns:
+                return True
+
             for pattern in include_patterns:
                 if pattern.startswith("*"):
                     if file_name.endswith(pattern[1:]):

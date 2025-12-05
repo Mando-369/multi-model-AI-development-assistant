@@ -76,32 +76,31 @@ class SystemMonitor:
         except Exception as e:
             return {"status": "error", "message": str(e), "document_count": 0}
 
-    def get_hrm_status(self, glm_system) -> Dict[str, Any]:
-        """Get HRM wrapper status."""
+    def get_agent_meta_status(self, glm_system) -> Dict[str, Any]:
+        """Get agent meta files status."""
         try:
-            if hasattr(glm_system, 'hrm_wrapper') and glm_system.hrm_wrapper:
-                hrm = glm_system.hrm_wrapper
-                return {
-                    "status": "ready",
-                    "device": getattr(hrm, 'device', 'unknown'),
-                    "model_loaded": getattr(hrm, 'model_loaded', False),
-                    "caching_enabled": getattr(hrm, 'enable_caching', False),
-                    "cache_size": len(getattr(hrm, '_decomposition_cache', {})),
-                }
-            return {"status": "not_initialized"}
+            from pathlib import Path
+            agents_dir = Path("./projects")
+            agent_files = list(agents_dir.rglob("agents/*_context.md"))
+            return {
+                "status": "ready" if agent_files else "empty",
+                "file_count": len(agent_files),
+            }
         except Exception as e:
-            return {"status": "error", "message": str(e)}
+            return {"status": "error", "message": str(e), "file_count": 0}
 
     def get_model_status(self, glm_system) -> Dict[str, Any]:
-        """Get loaded model instances status."""
+        """Get model status - configured models and memory status."""
         try:
-            loaded = list(glm_system._model_instances.keys()) if hasattr(glm_system, '_model_instances') else []
-            available = list(glm_system.models.keys()) if hasattr(glm_system, 'models') else []
+            # Models configured in the system
+            configured = list(glm_system.models.keys()) if hasattr(glm_system, 'models') else []
+            # Models currently loaded in memory (lazy loading)
+            in_memory = list(glm_system._model_instances.keys()) if hasattr(glm_system, '_model_instances') else []
             return {
-                "loaded_count": len(loaded),
-                "available_count": len(available),
-                "loaded_models": loaded,
-                "available_models": available,
+                "configured_count": len(configured),
+                "in_memory_count": len(in_memory),
+                "configured_models": configured,
+                "in_memory_models": in_memory,
             }
         except Exception as e:
             return {"status": "error", "message": str(e)}
@@ -178,46 +177,41 @@ def render_system_monitor(glm_system):
                 st.metric("Status", chroma_status["status"].title())
                 st.caption(chroma_status.get("message", "Not initialized"))
 
-    # HRM Status
+    # Agent Meta Status
     with col3:
         with st.container():
-            hrm_status = monitor.get_hrm_status(glm_system)
-            if hrm_status["status"] == "ready":
-                device = hrm_status.get("device", "cpu").upper()
-                if device == "MPS":
-                    st.success("**HRM**")
-                    st.metric("Device", "MPS")
-                    st.caption("M-series acceleration")
-                elif device == "CUDA":
-                    st.success("**HRM**")
-                    st.metric("Device", "CUDA")
-                    st.caption("GPU acceleration")
-                else:
-                    st.info("**HRM**")
-                    st.metric("Device", "CPU")
-                    st.caption("Standard mode")
-
-                if hrm_status.get("caching_enabled"):
-                    st.caption(f"Cache: {hrm_status.get('cache_size', 0)} entries")
+            agent_status = monitor.get_agent_meta_status(glm_system)
+            if agent_status["status"] == "ready":
+                st.success("**Agent Meta**")
+                st.metric("Files", agent_status["file_count"])
+                st.caption("Context files ready")
+            elif agent_status["status"] == "empty":
+                st.info("**Agent Meta**")
+                st.metric("Files", 0)
+                st.caption("No agent contexts yet")
             else:
-                st.warning("**HRM**")
-                st.metric("Status", "Pattern-based")
-                st.caption("Using fallback routing")
+                st.warning("**Agent Meta**")
+                st.metric("Status", agent_status["status"].title())
+                st.caption(agent_status.get("message", "Check projects folder"))
 
     # Models Status
     with col4:
         with st.container():
             model_status = monitor.get_model_status(glm_system)
-            loaded = model_status.get("loaded_count", 0)
-            available = model_status.get("available_count", 0)
+            configured = model_status.get("configured_count", 0)
+            in_memory = model_status.get("in_memory_count", 0)
 
-            if loaded > 0:
+            if configured > 0:
                 st.success("**Models**")
+                st.metric("Ready", f"{configured}")
+                if in_memory > 0:
+                    st.caption(f"{in_memory} in memory")
+                else:
+                    st.caption("Load on first use")
             else:
-                st.info("**Models**")
-
-            st.metric("Loaded", f"{loaded}/{available}")
-            st.caption("Lazy loading enabled")
+                st.warning("**Models**")
+                st.metric("Ready", "0")
+                st.caption("No models configured")
 
     st.divider()
 
@@ -237,11 +231,21 @@ def render_system_monitor(glm_system):
                 st.write(f"**Last Response:** {ollama_status['response_time_ms']}ms")
                 if avg_time:
                     st.write(f"**Avg Response:** {avg_time}ms")
-                st.write(f"**Available Models:** {ollama_status['models_available']}")
 
-                with st.expander("Show loaded models"):
-                    for model in ollama_status.get("models", []):
-                        st.code(model)
+                # Show app models vs all Ollama models
+                app_models = ["deepseek-r1:70b", "qwen2.5:32b"]
+                all_models = ollama_status.get("models", [])
+
+                st.write(f"**App Models:** 2 configured")
+                st.write(f"**Ollama Total:** {len(all_models)} installed")
+
+                with st.expander("Show all Ollama models"):
+                    for model in all_models:
+                        is_app_model = any(app in model for app in app_models)
+                        if is_app_model:
+                            st.success(f"✓ {model} (used by app)")
+                        else:
+                            st.caption(f"  {model}")
             else:
                 st.error(f"Connection issue: {ollama_status.get('message', 'Unknown')}")
                 st.markdown("""
@@ -272,47 +276,51 @@ def render_system_monitor(glm_system):
                 st.error(f"Error: {chroma_status.get('message', 'Unknown')}")
 
     with tab_models:
-        st.subheader("🤖 Available Models")
+        st.subheader("🤖 System Models")
 
         model_info = {
-            "DeepSeek-R1 (Reasoning)": {
+            "DeepSeek-R1:70B": {
                 "ollama_name": "deepseek-r1:70b",
-                "purpose": "Complex reasoning, debugging, architecture",
+                "purpose": "Deep reasoning, planning, architecture decisions",
                 "params": "70B",
-                "specialty": "Chain-of-thought reasoning"
+                "specialty": "Chain-of-thought reasoning with <think> tags"
             },
-            "Qwen2.5-Coder (Implementation)": {
-                "ollama_name": "qwen2.5-coder:32b",
-                "purpose": "Code implementation, FAUST/C++",
-                "params": "32B",
-                "specialty": "Code generation"
-            },
-            "Qwen2.5 (Math/Physics)": {
+            "Qwen2.5:32B": {
                 "ollama_name": "qwen2.5:32b",
-                "purpose": "Mathematical computations, DSP theory",
+                "purpose": "Fast summarization, agent meta updates, quick tasks",
                 "params": "32B",
-                "specialty": "Mathematical reasoning"
+                "specialty": "Speed & efficiency"
             },
         }
 
-        loaded_models = model_status.get("loaded_models", [])
+        # Check actual status from glm_system
+        configured_models = model_status.get("configured_models", [])
+        in_memory_models = model_status.get("in_memory_models", [])
 
         for display_name, info in model_info.items():
-            is_loaded = display_name in loaded_models
+            # Check if model is configured and/or in memory
+            model_key = display_name.split(":")[0]
+            is_configured = any(model_key.lower() in m.lower() for m in configured_models)
+            is_in_memory = any(model_key.lower() in m.lower() for m in in_memory_models)
 
             with st.container():
                 cols = st.columns([3, 1, 1])
                 with cols[0]:
-                    status_icon = "🟢" if is_loaded else "⚪"
+                    status_icon = "🟢" if is_configured else "⚪"
                     st.write(f"{status_icon} **{display_name}**")
                     st.caption(f"{info['purpose']}")
                 with cols[1]:
                     st.write(f"`{info['params']}`")
                 with cols[2]:
-                    st.write("Loaded" if is_loaded else "Not loaded")
+                    if is_in_memory:
+                        st.success("In Memory")
+                    elif is_configured:
+                        st.info("Ready")
+                    else:
+                        st.caption("Not configured")
                 st.divider()
 
-        st.info("Models are loaded on-demand when first used to save memory.")
+        st.info("Models are loaded on-demand when first used. Both models work together: DeepSeek-R1 for reasoning, Qwen for fast tasks.")
 
     with tab_activity:
         st.subheader("📜 Recent Activity")

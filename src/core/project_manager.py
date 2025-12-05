@@ -411,6 +411,7 @@ class ProjectManager:
                 .replace("&", "and")
                 .replace(",", "")
                 .replace("-", "_")
+                .replace(":", "_")
             )
 
             chat_file = project_path / f"{clean_model_name}_chat.json"
@@ -460,6 +461,7 @@ class ProjectManager:
                 .replace("&", "and")
                 .replace(",", "")
                 .replace("-", "_")
+                .replace(":", "_")
             )
 
             chat_file = project_path / f"{clean_model_name}_chat.json"

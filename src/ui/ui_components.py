@@ -10,7 +10,7 @@ def get_code_language_from_content(content: str) -> str:
     faust_keywords = ["import", "declare", "process", "library", "component", "with", "letrec", "fi.", "os.", "ma.", "de.", "re.", "en."]
     if any(keyword in content for keyword in faust_keywords):
         return "javascript"  # Use JavaScript as fallback for FAUST
-    
+
     # Other language detection
     if "def " in content or "import " in content or "class " in content:
         return "python"
@@ -20,8 +20,50 @@ def get_code_language_from_content(content: str) -> str:
         return "javascript"
     elif "package " in content and "public class" in content:
         return "java"
-    
+
     return None
+
+
+def extract_thinking_and_answer(response: str) -> tuple:
+    """Extract thinking/reasoning and final answer from DeepSeek-R1 response.
+
+    DeepSeek-R1 outputs reasoning in <think>...</think> tags.
+
+    Returns:
+        (thinking, answer) tuple - thinking may be None if not present
+    """
+    import re
+
+    # Try to find <think> tags (DeepSeek-R1 format)
+    think_pattern = r'<think>(.*?)</think>'
+    think_match = re.search(think_pattern, response, re.DOTALL)
+
+    if think_match:
+        thinking = think_match.group(1).strip()
+        # Remove thinking from response to get the answer
+        answer = re.sub(think_pattern, '', response, flags=re.DOTALL).strip()
+        return thinking, answer
+
+    # No thinking tags found - return as-is
+    return None, response
+
+
+def display_response_with_thinking(answer: str, selected_model: str):
+    """Display response with optional thinking section for R1 models."""
+    thinking, final_answer = extract_thinking_and_answer(answer)
+
+    # Show thinking section if present (R1 models)
+    if thinking and "R1" in selected_model:
+        with st.expander("🧠 **Reasoning Process** (click to expand)", expanded=False):
+            st.markdown(thinking)
+        st.markdown("---")
+
+    # Show the final answer
+    st.markdown(f"**🤖 {selected_model}:**")
+    if "```" in final_answer:
+        st.markdown(final_answer)
+    else:
+        st.write(final_answer)
 
 
 def render_project_management(glm_system):
@@ -76,9 +118,17 @@ def render_project_management(glm_system):
         st.markdown('<div class="project-management">', unsafe_allow_html=True)
         st.subheader("📁 Project Management")
 
-        # Initialize current project if not set
+        # Initialize current project - check URL params first for persistence across refreshes
+        available_projects = glm_system.project_manager.get_project_list()
+
         if "current_project" not in st.session_state:
-            st.session_state.current_project = "Default"
+            # Check URL query params for persisted project
+            query_params = st.query_params
+            url_project = query_params.get("project", "Default")
+            if url_project in available_projects:
+                st.session_state.current_project = url_project
+            else:
+                st.session_state.current_project = "Default"
 
         col1, col2, col3 = st.columns(3)
 
@@ -136,6 +186,8 @@ def render_project_management(glm_system):
         # Handle project change
         if selected_project != st.session_state.current_project:
             handle_project_change(selected_project)
+            # Update URL params for persistence across refreshes
+            st.query_params["project"] = selected_project
 
         st.session_state.current_project = selected_project
 
@@ -319,29 +371,48 @@ def render_model_selection(glm_system):
         st.markdown('<div class="model-selection">', unsafe_allow_html=True)
         st.subheader("🤖 Model & Agent Selection")
 
+        # Get URL params for persistence
+        query_params = st.query_params
+        model_options = list(glm_system.models.keys())
+        agent_options = list(AGENT_MODES.keys())
+
+        # Determine default model index from URL or session state
+        url_model = query_params.get("model", "")
+        default_model_idx = 0
+        if url_model and url_model in model_options:
+            default_model_idx = model_options.index(url_model)
+
+        # Determine default agent index from URL or session state
+        url_agent = query_params.get("agent", "General")
+        default_agent_idx = 0
+        if url_agent in agent_options:
+            default_agent_idx = agent_options.index(url_agent)
+
         col1, col2, col3 = st.columns(3)
 
         with col1:
-            model_options = list(glm_system.models.keys())
             selected_model = st.selectbox(
                 "Choose Model",
                 options=model_options,
-                index=0,  # Default to DeepSeek
+                index=default_model_idx,
                 help="DeepSeek for reasoning (slower but smarter), Qwen for quick tasks (faster)",
             )
             st.caption("🧠 **DeepSeek** - Complex tasks")
             st.caption("⚡ **Qwen** - Quick tasks")
 
+            # Update URL if model changed
+            if selected_model != url_model:
+                st.query_params["model"] = selected_model
+
         with col2:
             # Agent mode selection
-            agent_options = list(AGENT_MODES.keys())
             agent_labels = [f"{AGENT_MODES[a]['icon']} {a}" for a in agent_options]
 
             selected_agent_idx = st.selectbox(
                 "Specialist Mode",
                 options=range(len(agent_options)),
                 format_func=lambda x: agent_labels[x],
-                index=0,  # Default to General
+                index=default_agent_idx,
                 help="Choose domain-specific expertise",
             )
             selected_agent = agent_options[selected_agent_idx]
@@ -349,6 +420,10 @@ def render_model_selection(glm_system):
             # Show agent description
             agent_info = AGENT_MODES[selected_agent]
             st.caption(f"*{agent_info['description']}*")
+
+            # Update URL if agent changed
+            if selected_agent != url_agent:
+                st.query_params["agent"] = selected_agent
 
         with col3:
             use_context = st.checkbox(
@@ -368,20 +443,9 @@ def render_model_selection(glm_system):
 
 
 def render_sidebar(glm_system):
-    """Render sidebar with file management"""
+    """Render sidebar with system status only (KB management moved to Knowledge tab)"""
     with st.sidebar:
-        st.header("📚 Knowledge Base Management")
-
-        # File upload section
-        render_file_upload_section(glm_system)
-
-        # Bulk operations
-        render_bulk_operations(glm_system)
-
-        # FAUST Documentation Section
-        render_faust_docs_section(glm_system)
-
-        # Model status
+        # Model and system status only
         render_model_status(glm_system)
 
 
@@ -522,18 +586,21 @@ def render_model_status(glm_system):
     st.subheader("🔧 System Status")
 
     # Ollama Model Status
-    st.write("**🤖 Available Models:**")
+    st.write("**🤖 Models (via Ollama):**")
     for model_name, model_id in glm_system.models.items():
         try:
             if model_name in glm_system._model_instances:
-                st.success(f"✅ {model_name}")
+                st.success(f"✅ {model_name} (in memory)")
             else:
-                st.info(f"💤 {model_name} (not loaded yet)")
+                st.info(f"✅ {model_name} (ready)")
         except:
             st.error(f"❌ {model_name}")
 
-    if st.button("🔍 Check Model Availability"):
-        status = glm_system.check_model_availability()
+    st.caption("💡 Models load into memory on first use")
+
+    if st.button("🔍 Test Model Connection"):
+        with st.spinner("Testing Ollama connection..."):
+            status = glm_system.check_model_availability()
         for model_name, status_text in status.items():
             if "✅" in status_text:
                 st.success(f"{status_text} {model_name}")
@@ -579,10 +646,13 @@ def render_chat_interface(glm_system, selected_model, use_context, selected_proj
 
     st.write("---")
 
-    # 3. RECENT CONVERSATIONS (below input)
+    # 3. AGENT CONTEXT (the meta file - above chat history)
+    render_agent_context(glm_system, selected_project, selected_agent)
+
+    # 4. RECENT CONVERSATIONS (below agent context)
     render_recent_conversations(st.session_state[chat_key], selected_model)
 
-    # 4. FULL CHAT HISTORY (at the bottom)
+    # 5. FULL CHAT HISTORY (at the bottom)
     render_full_chat_history(st.session_state[chat_key], selected_model)
 
 
@@ -741,7 +811,9 @@ def render_chat_input(
 
         with col2:
             if st.button("🗑️ Clear Input"):
-                st.session_state.clear_chat_input = True
+                # Clear the text area by deleting its session state key
+                if "main_chat_input" in st.session_state:
+                    del st.session_state["main_chat_input"]
                 st.rerun()
 
         with col3:
@@ -761,10 +833,20 @@ def render_chat_input(
                 st.success("Ready for a new conversation!")
 
         with col2:
-            if st.button("🗑️ Clear Chat History"):
-                st.session_state[chat_key] = []
-                st.success("Chat history cleared!")
-                st.rerun()
+            col_a, col_b = st.columns(2)
+            with col_a:
+                if st.button("🔄 Reload History"):
+                    # Reload history from file
+                    st.session_state[chat_key] = glm_system.project_manager.load_project_chats(
+                        selected_project, selected_model
+                    )
+                    st.success(f"Reloaded {len(st.session_state[chat_key])} conversations")
+                    st.rerun()
+            with col_b:
+                if st.button("🗑️ Clear History"):
+                    st.session_state[chat_key] = []
+                    st.success("Chat history cleared!")
+                    st.rerun()
 
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -811,6 +893,138 @@ def render_chat_input(
             st.rerun()
 
 
+def render_agent_context(glm_system, project_name: str, agent_mode: str):
+    """Render agent context meta file with view/edit capability.
+
+    Shows the current agent's summarized context above chat history.
+    Users can view, edit, and save the context manually.
+    """
+    # Don't show for Default project
+    if project_name == "Default":
+        return
+
+    agent_meta = glm_system.read_agent_meta(project_name, agent_mode)
+
+    # Add styling for the agent context box (blue/purple theme to distinguish from green project box)
+    st.markdown(
+        """
+    <style>
+    .agent-context {
+        background: linear-gradient(135deg, #313244 0%, #1e1e2e 100%);
+        padding: 20px 25px;
+        border-radius: 12px;
+        border: 2px solid #89b4fa;
+        margin-bottom: 25px;
+        box-shadow: 0 4px 15px rgba(137, 180, 250, 0.15);
+    }
+    .agent-context h3 {
+        color: #89b4fa !important;
+        font-size: 1.4rem !important;
+        margin-bottom: 15px !important;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #45475a;
+    }
+    .agent-context .stTextArea label {
+        color: #cdd6f4 !important;
+        font-weight: 600 !important;
+    }
+    .agent-context .stTextArea textarea {
+        background-color: #45475a !important;
+        border: 1px solid #585b70 !important;
+        color: #cdd6f4 !important;
+        font-family: monospace !important;
+    }
+    .agent-context .stButton > button {
+        background-color: #89b4fa !important;
+        color: #1e1e2e !important;
+        font-weight: 600 !important;
+        border: none !important;
+    }
+    .agent-context .stButton > button:hover {
+        background-color: #b4befe !important;
+    }
+    .agent-context .stMarkdown {
+        color: #cdd6f4 !important;
+    }
+    .agent-context-content {
+        background-color: #45475a;
+        padding: 15px;
+        border-radius: 8px;
+        margin: 10px 0;
+        font-family: monospace;
+        white-space: pre-wrap;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    </style>
+    """,
+        unsafe_allow_html=True,
+    )
+
+    # Unique key for this agent's editor state
+    editing_key = f"meta_editing_{project_name}_{agent_mode}"
+
+    # Header with agent info
+    agent_config = AGENT_MODES.get(agent_mode, AGENT_MODES["General"])
+    icon = agent_config.get("icon", "🤖")
+
+    with st.container():
+        st.markdown('<div class="agent-context">', unsafe_allow_html=True)
+        st.markdown(f"### {icon} {agent_mode} Agent Context")
+
+        if agent_meta:
+            # Show word count
+            word_count = len(agent_meta.split())
+            st.caption(f"📊 {word_count} words | Auto-updated by Qwen after each exchange")
+
+            # Check if we're in edit mode
+            if st.session_state.get(editing_key, False):
+                # Edit mode - show text area
+                edited_content = st.text_area(
+                    "Edit context:",
+                    value=agent_meta,
+                    height=400,
+                    key=f"meta_edit_{project_name}_{agent_mode}",
+                )
+
+                col1, col2, col3 = st.columns([1, 1, 2])
+                with col1:
+                    if st.button("💾 Save", key=f"save_meta_{project_name}_{agent_mode}"):
+                        if glm_system.save_agent_meta(project_name, agent_mode, edited_content):
+                            st.success("✅ Context saved!")
+                            st.session_state[editing_key] = False
+                            st.rerun()
+                        else:
+                            st.error("❌ Failed to save")
+
+                with col2:
+                    if st.button("❌ Cancel", key=f"cancel_meta_{project_name}_{agent_mode}"):
+                        st.session_state[editing_key] = False
+                        st.rerun()
+            else:
+                # View mode - show content in styled div
+                st.markdown(
+                    f'<div class="agent-context-content">{agent_meta}</div>',
+                    unsafe_allow_html=True
+                )
+
+                col1, col2, col3 = st.columns([1, 1, 2])
+                with col1:
+                    if st.button("✏️ Edit", key=f"edit_meta_{project_name}_{agent_mode}"):
+                        st.session_state[editing_key] = True
+                        st.rerun()
+
+                with col2:
+                    if st.button("🗑️ Clear", key=f"clear_meta_{project_name}_{agent_mode}"):
+                        if glm_system.clear_agent_meta(project_name, agent_mode):
+                            st.success("✅ Context cleared!")
+                            st.rerun()
+        else:
+            st.info(f"💡 No context yet for {agent_mode} agent. It will be created after your first exchange.")
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+
 def render_recent_conversations(chat_history, selected_model):
     """Render recent conversations section with export buttons"""
     # Display recent chat (last 5 exchanges) - collapsible
@@ -849,12 +1063,8 @@ def render_recent_conversations(chat_history, selected_model):
                 question_lang = get_code_language_from_content(question)
                 st.code(question, language=question_lang)
 
-                # Answer section
-                st.markdown(f"**🤖 {selected_model}:**")
-                if "```" in answer:
-                    st.markdown(answer)
-                else:
-                    st.write(answer)
+                # Answer section - use helper to show R1 thinking if present
+                display_response_with_thinking(answer, selected_model)
 
                 # Export buttons section
                 st.markdown("---")
@@ -967,14 +1177,9 @@ def render_full_chat_history(chat_history, selected_model):
                         question_lang = get_code_language_from_content(question)
                         st.code(question, language=question_lang)
 
-                    col1, col2 = st.columns([1, 3])
-                    with col1:
-                        st.write("**Answer:**")
-                    with col2:
-                        if "```" in answer:
-                            st.markdown(answer)
-                        else:
-                            st.write(answer)
+                    # Answer section - use helper to show R1 thinking if present
+                    st.write("**Answer:**")
+                    display_response_with_thinking(answer, selected_model)
 
                     # Show token/character count
                     st.caption(f"📊 Q: {len(question)} chars | A: {len(answer)} chars")

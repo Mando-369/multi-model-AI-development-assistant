@@ -5,6 +5,7 @@ from typing import Dict, List, Optional
 import difflib
 import re
 import hashlib
+from src.core.prompts import AGENT_MODES
 
 
 class EditorUI:
@@ -298,11 +299,20 @@ class EditorUI:
         """Render AI integration controls"""
         st.subheader("🤖 AI Assistant")
 
+        # Create unique key prefix for this file
+        file_key = Path(file_path).name.replace(".", "_")
+
         col1, col2 = st.columns([2, 1])
 
         with col1:
+            # Use session state to persist prompt across reruns
+            prompt_key = f"editor_ai_prompt_{file_key}"
+            if prompt_key not in st.session_state:
+                st.session_state[prompt_key] = ""
+
             ai_prompt = st.text_area(
                 "What would you like the AI to do with this file?",
+                value=st.session_state[prompt_key],
                 placeholder="""Examples:
                     • Add comments to explain the code
                     • Optimize this function for performance
@@ -311,32 +321,63 @@ class EditorUI:
                     • Fix any bugs you find
                     • Refactor this code to be more readable""",
                 height=350,
-                key=f"ai_prompt_{Path(file_path).name}",
+                key=f"ai_prompt_{file_key}",
             )
+            # Store in session state
+            st.session_state[prompt_key] = ai_prompt
 
         with col2:
             # Model selection for file editing
             available_models = list(self.multi_glm_system.models.keys())
             selected_model = st.selectbox(
-                "AI Model:", available_models, key=f"ai_model_{Path(file_path).name}"
+                "AI Model:",
+                available_models,
+                key=f"ai_model_{file_key}",
+                help="DeepSeek for complex tasks, Qwen for quick edits",
             )
+
+            # Agent mode selection (same as AI Chat tab)
+            agent_options = list(AGENT_MODES.keys())
+            agent_labels = [f"{AGENT_MODES[a]['icon']} {a}" for a in agent_options]
+            selected_agent_idx = st.selectbox(
+                "Specialist Mode:",
+                options=range(len(agent_options)),
+                format_func=lambda x: agent_labels[x],
+                index=0,
+                key=f"ai_agent_{file_key}",
+                help="Choose domain-specific expertise",
+            )
+            selected_agent = agent_options[selected_agent_idx]
+            agent_info = AGENT_MODES[selected_agent]
+            st.caption(f"*{agent_info['description']}*")
 
             use_context = st.checkbox(
                 "Use project context",
                 value=True,
-                key=f"ai_context_{Path(file_path).name}",
+                key=f"ai_context_{file_key}",
                 help="Include other project files and documentation",
             )
 
-            if st.button("🚀 Apply AI", key=f"ai_apply_{Path(file_path).name}"):
+            if st.button("🚀 Apply AI", key=f"ai_apply_{file_key}"):
                 if ai_prompt.strip() and selected_model:
                     self.apply_ai_to_file(
-                        file_path, ai_prompt, selected_model, use_context, project_name
+                        file_path, ai_prompt, selected_model, use_context, project_name, selected_agent
                     )
                 elif not ai_prompt.strip():
                     st.warning("Please enter a prompt for the AI")
                 else:
                     st.error("Please select a model")
+
+    def is_analysis_task(self, prompt: str) -> bool:
+        """Detect if the task is analysis/explanation (vs code modification)."""
+        prompt_lower = prompt.lower()
+        analysis_keywords = [
+            "summary", "summarize", "explain", "describe", "what does",
+            "how does", "tell me", "review", "analyze", "analysis",
+            "understand", "documentation", "comment on", "overview",
+            "what is", "why does", "purpose", "function of",
+        ]
+        return any(keyword in prompt_lower for keyword in analysis_keywords)
 
     def apply_ai_to_file(
         self,
@@ -345,13 +386,32 @@ class EditorUI:
         model_name: str,
         use_context: bool,
         project_name: str,
+        agent_mode: str = "General",
     ):
         """Apply AI assistance to file content"""
         file_path = str(file_path)
         file_data = st.session_state.editor_open_files[file_path]
 
-        # Create enhanced prompt with file content
-        enhanced_prompt = f"""Please help me with this file: {Path(file_path).name}
+        # Detect if this is an analysis task (summary, explain, etc.) vs modification
+        is_analysis = self.is_analysis_task(prompt)
+
+        if is_analysis:
+            # Analysis task - ask for explanation, not code
+            enhanced_prompt = f"""Please analyze this file: {Path(file_path).name}
+
+File content:
+```{file_data['language']}
+{file_data['current_content']}
+```
+
+Task: {prompt}
+
+Provide a clear, helpful response. Focus on explaining and analyzing, not modifying the code.
+"""
+            spinner_text = f"🤖 {model_name} is analyzing your file..."
+        else:
+            # Modification task - ask for code changes
+            enhanced_prompt = f"""Please help me modify this file: {Path(file_path).name}
 
 Current file content:
 ```{file_data['language']}
@@ -362,35 +422,41 @@ Task: {prompt}
 
 Please provide the complete modified file content. Only return the code/content, no explanations unless specifically requested.
 """
+            spinner_text = f"🤖 {model_name} is modifying your file..."
 
-        with st.spinner(f"🤖 {model_name} is analyzing and modifying your file..."):
+        with st.spinner(spinner_text):
             try:
-                response = self.multi_glm_system.chat_with_model_enhanced(
-                    enhanced_prompt, model_name, use_context, project_name, use_hrm_decomposition=True
+                response = self.multi_glm_system.chat_with_model(
+                    enhanced_prompt, model_name, use_context, project_name, None, agent_mode
                 )
 
-                # Extract code from response (remove markdown code blocks if present)
-                ai_content = self.extract_code_from_response(
-                    response, file_data["language"]
-                )
-
-                # Apply AI suggestion
-                result = self.file_editor.apply_ai_suggestion(file_path, ai_content)
-
-                if result.get("success"):
-                    st.session_state.editor_open_files[file_path][
-                        "ai_suggested_content"
-                    ] = ai_content
-                    st.session_state.editor_open_files[file_path][
-                        "has_ai_suggestions"
-                    ] = True
-
-                    st.success(
-                        f"✅ AI suggestions applied! {result['changes_count']} changes detected."
-                    )
-                    st.rerun()
+                if is_analysis:
+                    # For analysis tasks, just display the response
+                    st.success("✅ Analysis complete!")
+                    st.markdown("### 📝 AI Analysis")
+                    st.markdown(response)
                 else:
-                    st.error(result.get("error", "Failed to apply AI suggestions"))
+                    # For modification tasks, extract code and apply changes
+                    ai_content = self.extract_code_from_response(
+                        response, file_data["language"]
+                    )
+
+                    result = self.file_editor.apply_ai_suggestion(file_path, ai_content)
+
+                    if result.get("success"):
+                        st.session_state.editor_open_files[file_path][
+                            "ai_suggested_content"
+                        ] = ai_content
+                        st.session_state.editor_open_files[file_path][
+                            "has_ai_suggestions"
+                        ] = True
+
+                        st.success(
+                            f"✅ AI suggestions applied! {result['changes_count']} changes detected."
+                        )
+                        st.rerun()
+                    else:
+                        st.error(result.get("error", "Failed to apply AI suggestions"))
 
             except Exception as e:
                 st.error(f"Error applying AI: {e}")

@@ -125,6 +125,10 @@ class FileBrowser:
     ) -> Optional[str]:
         """Render interactive file tree and return selected file path"""
 
+        # Initialize show_all_files state if needed
+        if "show_all_files" not in st.session_state:
+            st.session_state["show_all_files"] = False
+
         # Get project files structure
         files_data = self.file_editor.get_project_files(
             project_path, include_patterns, exclude_patterns
@@ -146,37 +150,43 @@ class FileBrowser:
         # Instructions
         st.info("💡 **Click on any file name to open it in the editor**")
 
-        # Controls row - Folder controls and Sorting controls
-        col1, col2, col3, col4, col5 = st.columns([1.1, 1.1, 1.4, 1.4, 0.8])
-        
-        # Folder controls
+        # Row 1: Folder controls - Expand, Collapse, Show All Files
+        col1, col2, col3 = st.columns(3)
+
         with col1:
-            if st.button("📂 Expand All", key="expand_all_dirs"):
+            if st.button("📂 Expand All", key="expand_all_dirs", use_container_width=True):
                 self._expand_all_directories(files_data, project_path)
                 st.rerun()
+
         with col2:
-            if st.button("📁 Collapse All", key="collapse_all_dirs"):
+            if st.button("📁 Collapse All", key="collapse_all_dirs", use_container_width=True):
                 self.expanded_dirs.clear()
                 st.rerun()
-        
-        # Sorting controls
+
         with col3:
+            show_all_current = st.session_state.get("show_all_files", False)
+            button_label = "✅ Show All Files" if show_all_current else "👁️ Show All Files"
+            if st.button(button_label, key="show_all_btn", use_container_width=True):
+                st.session_state["show_all_files"] = not show_all_current
+                st.rerun()
+
+        # Row 2: Sorting controls
+        col1, col2 = st.columns(2)
+
+        with col1:
             sort_by = st.selectbox(
-                "📊 Sort by:",
+                "📊 Sort files by:",
                 ["name", "type", "date", "size"],
                 key="file_sort_method",
-                help="Sort files by different criteria"
             )
-        with col4:
+
+        with col2:
             sort_order = st.selectbox(
                 "🔄 Order:",
                 ["asc", "desc"],
-                format_func=lambda x: "↑ A→Z" if x == "asc" else "↓ Z→A",
+                format_func=lambda x: "↑ Ascending" if x == "asc" else "↓ Descending",
                 key="file_sort_order",
-                help="Sort order"
             )
-        with col5:
-            st.caption(f"📊 {len(self.expanded_dirs)} folders open")
 
         st.write("---")
 

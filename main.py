@@ -97,12 +97,20 @@ def main():
     # Project management (shared across all tabs)
     selected_project = render_project_management(st.session_state.multi_glm_system)
 
-    # Initialize active tab in session state (persists across reruns)
+    # Tab options
+    tab_options = ["💬 AI Chat", "📝 Code Editor", "📚 Knowledge Base", "🖥️ System Monitor"]
+    tab_keys = ["chat", "editor", "kb", "monitor"]  # Short keys for URL
+
+    # Initialize active tab - check URL params first for persistence across refreshes
     if "active_tab" not in st.session_state:
-        st.session_state.active_tab = "💬 AI Chat"
+        query_params = st.query_params
+        url_tab = query_params.get("tab", "chat")
+        if url_tab in tab_keys:
+            st.session_state.active_tab = tab_options[tab_keys.index(url_tab)]
+        else:
+            st.session_state.active_tab = "💬 AI Chat"
 
     # Tab selector that persists selection
-    tab_options = ["💬 AI Chat", "📝 Code Editor", "📚 Knowledge Base", "🖥️ System Monitor"]
     selected_tab = st.radio(
         "Navigation",
         tab_options,
@@ -112,9 +120,10 @@ def main():
         label_visibility="collapsed"
     )
 
-    # Update session state when tab changes
+    # Update session state and URL when tab changes
     if selected_tab != st.session_state.active_tab:
         st.session_state.active_tab = selected_tab
+        st.query_params["tab"] = tab_keys[tab_options.index(selected_tab)]
 
     st.divider()
 
@@ -279,9 +288,17 @@ def render_code_editor_tab(selected_project: str):
             st.subheader("📁 File Tree")
             selected_file = None
 
+            # Check if Show All Files is enabled - bypass filters
+            if st.session_state.get("show_all_files", False):
+                tree_include = ["*"]
+                tree_exclude = ["__pycache__", ".git", "node_modules", "*.pyc"]
+            else:
+                tree_include = include_patterns
+                tree_exclude = exclude_patterns
+
             try:
                 selected_file = st.session_state.file_browser.render_file_tree(
-                    project_path, include_patterns, exclude_patterns
+                    project_path, tree_include, tree_exclude
                 )
             except Exception as e:
                 st.error(f"**❌ Error rendering file tree:** {e}")
