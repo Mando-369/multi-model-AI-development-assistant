@@ -1,7 +1,119 @@
 import streamlit as st
 from pathlib import Path
 from ..core.prompts import MODEL_INFO, AGENT_MODES
+from typing import Optional
 import re
+
+
+def generate_agent_context_suggestion(glm_system, project_name: str, agent_mode: str) -> Optional[str]:
+    """Generate suggested agent context based on PROJECT_META.md and recent chat.
+
+    Uses the selected model to create an improved agent context that aligns
+    with the project overview and incorporates recent work.
+    """
+    try:
+        # Get PROJECT_META.md content
+        project_meta = glm_system.project_meta_manager.read_project_meta(project_name)
+        if not project_meta:
+            project_meta = "(No PROJECT_META.md found)"
+
+        # Get current agent context
+        current_context = glm_system.read_agent_meta(project_name, agent_mode)
+
+        # Get agent configuration
+        agent_config = AGENT_MODES.get(agent_mode, AGENT_MODES["General"])
+        agent_description = agent_config.get("description", "General assistant")
+
+        # Get recent chat history for this agent
+        chat_key = f"chat_history_{project_name}"
+        chat_history = st.session_state.get(chat_key, [])
+        recent_exchanges = chat_history[-5:] if chat_history else []
+        chat_summary = ""
+        if recent_exchanges:
+            chat_summary = "\n\n".join([
+                f"Q: {q[:200]}...\nA: {a[:300]}..."
+                for q, a in recent_exchanges
+            ])
+
+        prompt = f"""You are generating/updating context for a specialist AI agent.
+
+AGENT: {agent_mode}
+ROLE: {agent_description}
+
+PROJECT OVERVIEW (PROJECT_META.md):
+{project_meta}
+
+CURRENT AGENT CONTEXT:
+{current_context if current_context else "(No existing context)"}
+
+RECENT CHAT EXCHANGES:
+{chat_summary if chat_summary else "(No recent exchanges)"}
+
+TASK:
+Generate an improved agent context file that:
+1. Summarizes what this agent needs to know about the project
+2. Lists key decisions, constraints, and requirements relevant to this agent's specialty
+3. Tracks the current state of work in this agent's domain
+4. Notes any blockers or dependencies on other agents
+5. Keeps important technical details from recent conversations
+
+FORMAT:
+# {agent_mode} Agent Context
+
+## Project Relevance
+(How this project relates to {agent_mode} specialty)
+
+## Current Focus
+(Active work items for this agent)
+
+## Key Decisions
+(Technical decisions in this agent's domain)
+
+## Technical Notes
+(Important details, constraints, patterns)
+
+## Dependencies
+(What this agent needs from other agents)
+
+Keep it concise (under 500 words). Focus on actionable, project-specific information.
+Return ONLY the context file content."""
+
+        # Use Qwen for fast generation
+        llm = glm_system.get_model_instance("Qwen2.5:32B (Fast)")
+        if llm:
+            result = llm.invoke(prompt)
+            return result.strip()
+        return None
+
+    except Exception as e:
+        print(f"Error generating agent context suggestion: {e}")
+        return None
+
+
+def render_agent_suggestion_approval(glm_system, project_name: str, agent_mode: str, suggestion_key: str):
+    """Render agent context suggestion with approve/reject buttons."""
+    st.write("---")
+    st.markdown("**📝 Suggested Context Update**")
+
+    suggestion = st.session_state[suggestion_key]
+
+    with st.expander("Preview suggested context", expanded=True):
+        st.code(suggestion, language="markdown")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("✅ Apply", type="primary", key=f"apply_agent_suggestion_{project_name}_{agent_mode}"):
+            if glm_system.save_agent_meta(project_name, agent_mode, suggestion):
+                st.success("Context updated!")
+                st.session_state[suggestion_key] = None
+                st.rerun()
+            else:
+                st.error("Failed to save")
+
+    with col2:
+        if st.button("❌ Discard", key=f"discard_agent_suggestion_{project_name}_{agent_mode}"):
+            st.session_state[suggestion_key] = None
+            st.rerun()
 
 
 def get_code_language_from_content(content: str) -> str:
@@ -116,7 +228,16 @@ def render_project_management(glm_system):
 
     with st.container():
         st.markdown('<div class="project-management">', unsafe_allow_html=True)
-        st.subheader("📁 Project Management")
+        st.markdown("""
+        <h2 style="
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #a6e3a1;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #45475a;
+        ">📁 Project Management</h2>
+        """, unsafe_allow_html=True)
 
         # Initialize current project - check URL params first for persistence across refreshes
         available_projects = glm_system.project_manager.get_project_list()
@@ -1008,19 +1129,55 @@ def render_agent_context(glm_system, project_name: str, agent_mode: str):
                     unsafe_allow_html=True
                 )
 
-                col1, col2, col3 = st.columns([1, 1, 2])
+                col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
                 with col1:
                     if st.button("✏️ Edit", key=f"edit_meta_{project_name}_{agent_mode}"):
                         st.session_state[editing_key] = True
                         st.rerun()
 
                 with col2:
+                    if st.button("✨ Suggest", key=f"suggest_meta_{project_name}_{agent_mode}",
+                                 help="Generate improved context using PROJECT_META.md + recent chat"):
+                        suggestion_key = f"agent_suggestion_{project_name}_{agent_mode}"
+                        with st.spinner("Generating suggestion..."):
+                            suggestion = generate_agent_context_suggestion(
+                                glm_system, project_name, agent_mode
+                            )
+                            if suggestion:
+                                st.session_state[suggestion_key] = suggestion
+                                st.rerun()
+                            else:
+                                st.warning("Could not generate suggestion")
+
+                with col3:
                     if st.button("🗑️ Clear", key=f"clear_meta_{project_name}_{agent_mode}"):
                         if glm_system.clear_agent_meta(project_name, agent_mode):
                             st.success("✅ Context cleared!")
                             st.rerun()
+
+                # Check if there's a pending suggestion
+                suggestion_key = f"agent_suggestion_{project_name}_{agent_mode}"
+                if st.session_state.get(suggestion_key):
+                    render_agent_suggestion_approval(glm_system, project_name, agent_mode, suggestion_key)
+
         else:
             st.info(f"💡 No context yet for {agent_mode} agent. It will be created after your first exchange.")
+            # Still offer Suggest button even when no context exists
+            if st.button("✨ Generate Initial Context", key=f"init_suggest_{project_name}_{agent_mode}",
+                         help="Generate initial context from PROJECT_META.md"):
+                suggestion_key = f"agent_suggestion_{project_name}_{agent_mode}"
+                with st.spinner("Generating initial context..."):
+                    suggestion = generate_agent_context_suggestion(
+                        glm_system, project_name, agent_mode
+                    )
+                    if suggestion:
+                        st.session_state[suggestion_key] = suggestion
+                        st.rerun()
+
+            # Check for pending suggestion
+            suggestion_key = f"agent_suggestion_{project_name}_{agent_mode}"
+            if st.session_state.get(suggestion_key):
+                render_agent_suggestion_approval(glm_system, project_name, agent_mode, suggestion_key)
 
         st.markdown('</div>', unsafe_allow_html=True)
 

@@ -111,20 +111,59 @@ def main():
         else:
             st.session_state.active_tab = "📋 Project Meta"
 
-    # Tab selector that persists selection
-    selected_tab = st.radio(
-        "Navigation",
-        tab_options,
-        index=tab_options.index(st.session_state.active_tab),
-        horizontal=True,
-        key="tab_selector",
-        label_visibility="collapsed"
-    )
+    # Render tab buttons using columns
+    tab_cols = st.columns(len(tab_options))
+    for i, (tab_name, tab_key) in enumerate(zip(tab_options, tab_keys)):
+        with tab_cols[i]:
+            is_active = st.session_state.active_tab == tab_name
+            # Use different button type for active/inactive
+            if is_active:
+                # Active tab - green style using primary
+                st.markdown(f"""
+                <div style="
+                    background: linear-gradient(135deg, #1e5a3a 0%, #2d8a57 100%);
+                    padding: 12px 8px;
+                    border-radius: 8px;
+                    border: 2px solid #a6e3a1;
+                    text-align: center;
+                    font-weight: 700;
+                    font-size: 0.9rem;
+                    color: #ffffff;
+                    box-shadow: 0 4px 15px rgba(166, 227, 161, 0.4);
+                    cursor: default;
+                ">{tab_name}</div>
+                """, unsafe_allow_html=True)
+            else:
+                # Inactive tab - blue style, clickable
+                if st.button(tab_name, key=f"tab_btn_{tab_key}", use_container_width=True):
+                    st.session_state.active_tab = tab_name
+                    st.query_params["tab"] = tab_key
+                    st.rerun()
 
-    # Update session state and URL when tab changes
-    if selected_tab != st.session_state.active_tab:
-        st.session_state.active_tab = selected_tab
-        st.query_params["tab"] = tab_keys[tab_options.index(selected_tab)]
+    # CSS for inactive tab buttons
+    st.markdown("""
+    <style>
+    /* Style inactive tab buttons (blue) */
+    div[data-testid="stButton"] > button {
+        background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%) !important;
+        border: 2px solid #89b4fa !important;
+        color: #cdd6f4 !important;
+        font-weight: 600 !important;
+        padding: 12px 8px !important;
+        border-radius: 8px !important;
+        box-shadow: 0 2px 8px rgba(137, 180, 250, 0.3) !important;
+        transition: all 0.2s ease !important;
+    }
+    div[data-testid="stButton"] > button:hover {
+        background: linear-gradient(135deg, #2d5a87 0%, #3d7ab7 100%) !important;
+        border-color: #b4befe !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 12px rgba(137, 180, 250, 0.4) !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    selected_tab = st.session_state.active_tab
 
     st.divider()
 

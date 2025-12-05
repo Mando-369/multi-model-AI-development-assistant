@@ -45,6 +45,9 @@ def render_quick_actions(glm_system, project_name: str):
     """Render quick action buttons."""
     st.subheader("⚡ Quick Actions")
 
+    # Session state key for summary
+    summary_key = f"project_summary_{project_name}"
+
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
@@ -54,7 +57,10 @@ def render_quick_actions(glm_system, project_name: str):
     with col2:
         if st.button("📊 Generate Summary", help="Create exportable project summary"):
             with st.spinner("Generating summary..."):
-                generate_project_summary(glm_system, project_name)
+                summary = _generate_summary_content(glm_system, project_name)
+                if summary:
+                    st.session_state[summary_key] = summary
+                    st.rerun()
 
     with col3:
         if st.button("📤 Export Queue", help="Show items ready for Claude Code"):
@@ -63,6 +69,19 @@ def render_quick_actions(glm_system, project_name: str):
     with col4:
         if st.button("🔃 Refresh", help="Reload PROJECT_META.md"):
             st.rerun()
+
+    # Display summary OUTSIDE columns (full width) if available
+    if st.session_state.get(summary_key):
+        st.write("---")
+        st.markdown("### 📋 Project Summary")
+        st.code(st.session_state[summary_key], language="markdown")
+        col_a, col_b = st.columns([1, 5])
+        with col_a:
+            if st.button("❌ Close Summary", key="close_summary"):
+                st.session_state[summary_key] = None
+                st.rerun()
+        with col_b:
+            st.info("Use the copy button (top-right of code block) to copy to Claude Code")
 
 
 def render_meta_viewer_editor(glm_system, project_name: str):
@@ -137,8 +156,11 @@ def render_orchestrator_chat(glm_system, project_name: str):
 
     # Orchestrator chat history (separate from main chat)
     chat_key = f"orchestrator_chat_{project_name}"
+    suggestion_key = f"orchestrator_suggestion_{project_name}"
     if chat_key not in st.session_state:
         st.session_state[chat_key] = []
+    if suggestion_key not in st.session_state:
+        st.session_state[suggestion_key] = None
 
     # Model selection for Orchestrator
     model_options = list(glm_system.models.keys())
@@ -158,7 +180,7 @@ def render_orchestrator_chat(glm_system, project_name: str):
         key=f"orchestrator_input_{project_name}"
     )
 
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     with col1:
         send_disabled = not question.strip()
         if st.button("🚀 Send", disabled=send_disabled, key=f"orchestrator_send_{project_name}"):
@@ -183,12 +205,31 @@ def render_orchestrator_chat(glm_system, project_name: str):
                     project_name, "Orchestrator", question, response
                 )
 
+                # Clear any previous suggestion
+                st.session_state[suggestion_key] = None
+
                 st.rerun()
 
     with col2:
-        if st.button("🗑️ Clear History", key=f"orchestrator_clear_{project_name}"):
+        # Generate suggestion button - only show if there's chat history
+        suggest_disabled = len(st.session_state[chat_key]) == 0
+        if st.button("✨ Suggest Update", disabled=suggest_disabled, key=f"orchestrator_suggest_{project_name}",
+                     help="Generate suggested changes to PROJECT_META.md based on conversation"):
+            with st.spinner("Generating suggestion..."):
+                suggestion = generate_meta_suggestion(glm_system, project_name, st.session_state[chat_key])
+                if suggestion:
+                    st.session_state[suggestion_key] = suggestion
+                    st.rerun()
+
+    with col3:
+        if st.button("🗑️ Clear", key=f"orchestrator_clear_{project_name}"):
             st.session_state[chat_key] = []
+            st.session_state[suggestion_key] = None
             st.rerun()
+
+    # Display suggestion with approval if available
+    if st.session_state[suggestion_key]:
+        render_suggestion_approval(glm_system, project_name, suggestion_key)
 
     # Display recent exchanges
     if st.session_state[chat_key]:
@@ -198,6 +239,84 @@ def render_orchestrator_chat(glm_system, project_name: str):
             with st.expander(f"Q: {q[:50]}...", expanded=(i == 0)):
                 st.markdown(f"**Question:** {q}")
                 st.markdown(f"**Response:** {a}")
+
+
+def generate_meta_suggestion(glm_system, project_name: str, chat_history: list) -> Optional[str]:
+    """Generate suggested PROJECT_META.md update based on Orchestrator conversation."""
+    try:
+        current_meta = glm_system.project_meta_manager.read_project_meta(project_name)
+        if not current_meta:
+            return None
+
+        # Format recent conversation
+        recent_exchanges = chat_history[-5:]  # Last 5 exchanges
+        conversation = "\n\n".join([
+            f"USER: {q}\nORCHESTRATOR: {a}"
+            for q, a in recent_exchanges
+        ])
+
+        prompt = f"""You are updating a PROJECT_META.md file based on an Orchestrator conversation.
+
+CURRENT PROJECT_META.md:
+{current_meta}
+
+RECENT ORCHESTRATOR CONVERSATION:
+{conversation}
+
+TASK:
+Based on the conversation, generate an UPDATED PROJECT_META.md that incorporates:
+- Status changes mentioned (planned → in-progress → completed)
+- New milestones or tasks discussed
+- Architecture decisions made
+- Items ready for export
+- Any other relevant updates
+
+RULES:
+- Preserve the existing structure
+- Only change sections that need updating based on the conversation
+- Keep all unchanged content intact
+- Update the "Last Updated" timestamp and set "Updated By: orchestrator"
+
+Return ONLY the complete updated PROJECT_META.md content, nothing else."""
+
+        # Use Qwen for fast suggestion generation
+        llm = glm_system.get_model_instance("Qwen2.5:32B (Fast)")
+        if llm:
+            result = llm.invoke(prompt)
+            return result.strip()
+        return None
+
+    except Exception as e:
+        print(f"Error generating meta suggestion: {e}")
+        return None
+
+
+def render_suggestion_approval(glm_system, project_name: str, suggestion_key: str):
+    """Render suggestion preview with approve/reject buttons."""
+    st.write("---")
+    st.subheader("📝 Suggested Update")
+    st.caption("Review the suggested changes to PROJECT_META.md")
+
+    suggestion = st.session_state[suggestion_key]
+
+    # Show suggestion in expandable view
+    with st.expander("Preview suggested PROJECT_META.md", expanded=True):
+        st.code(suggestion, language="markdown")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("✅ Apply Changes", type="primary", key=f"apply_suggestion_{project_name}"):
+            if glm_system.project_meta_manager.save_project_meta(project_name, suggestion, "orchestrator"):
+                st.success("PROJECT_META.md updated!")
+                st.session_state[suggestion_key] = None
+                st.rerun()
+            else:
+                st.error("Failed to save changes")
+
+    with col2:
+        if st.button("❌ Discard", key=f"discard_suggestion_{project_name}"):
+            st.session_state[suggestion_key] = None
+            st.rerun()
 
 
 def render_sync_dialog(glm_system, project_name: str):
@@ -334,12 +453,12 @@ Return ONLY the PROJECT_META.md content."""
         return False
 
 
-def generate_project_summary(glm_system, project_name: str):
-    """Generate an exportable project summary."""
+def _generate_summary_content(glm_system, project_name: str) -> Optional[str]:
+    """Generate project summary content (helper function)."""
     project_meta = glm_system.project_meta_manager.read_project_meta(project_name)
     if not project_meta:
         st.warning("No PROJECT_META.md found")
-        return
+        return None
 
     prompt = f"""Summarize this project for export to a coding tool (like Claude Code).
 
@@ -354,12 +473,18 @@ Create a concise summary (200 words max) covering:
 
 Format for easy copy-paste."""
 
-    with st.spinner("Generating summary..."):
-        llm = glm_system.get_model_instance("Qwen2.5:32B (Fast)")
-        if llm:
-            summary = llm.invoke(prompt)
-            st.code(summary, language="markdown")
-            st.info("Copy above and paste into Claude Code")
+    llm = glm_system.get_model_instance("Qwen2.5:32B (Fast)")
+    if llm:
+        return llm.invoke(prompt)
+    return None
+
+
+def generate_project_summary(glm_system, project_name: str):
+    """Generate an exportable project summary (legacy wrapper)."""
+    summary = _generate_summary_content(glm_system, project_name)
+    if summary:
+        st.code(summary, language="markdown")
+        st.info("Copy above and paste into Claude Code")
 
 
 def show_export_queue(glm_system, project_name: str):
