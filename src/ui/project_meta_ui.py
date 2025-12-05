@@ -1,0 +1,384 @@
+"""Project Meta UI - Dedicated tab for project-level strategic planning."""
+
+import streamlit as st
+from datetime import datetime
+from typing import Optional
+from ..core.prompts import AGENT_MODES
+
+
+def render_project_meta_tab(glm_system, selected_project: str):
+    """Render the Project Meta tab interface."""
+    st.header("📋 Project Meta")
+
+    # Check for Default project
+    if selected_project == "Default":
+        st.info(
+            "**Project Meta is not available for the Default project.**\n\n"
+            "Create a named project to use Project Meta features:\n"
+            "- Strategic roadmap and milestones\n"
+            "- Cross-agent coordination\n"
+            "- Export queue for Claude Code"
+        )
+        return
+
+    st.caption(f"Project: **{selected_project}** | Strategic planning and cross-agent coordination")
+
+    # Ensure PROJECT_META.md exists
+    project_meta = glm_system.project_meta_manager.ensure_project_meta(selected_project)
+
+    # Quick Actions Bar
+    render_quick_actions(glm_system, selected_project)
+
+    st.write("---")
+
+    # Main content: Two columns
+    col_meta, col_chat = st.columns([3, 2])
+
+    with col_meta:
+        render_meta_viewer_editor(glm_system, selected_project)
+
+    with col_chat:
+        render_orchestrator_chat(glm_system, selected_project)
+
+
+def render_quick_actions(glm_system, project_name: str):
+    """Render quick action buttons."""
+    st.subheader("⚡ Quick Actions")
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        if st.button("🔄 Sync from Agents", help="Synthesize all agent metas into PROJECT_META"):
+            render_sync_dialog(glm_system, project_name)
+
+    with col2:
+        if st.button("📊 Generate Summary", help="Create exportable project summary"):
+            with st.spinner("Generating summary..."):
+                generate_project_summary(glm_system, project_name)
+
+    with col3:
+        if st.button("📤 Export Queue", help="Show items ready for Claude Code"):
+            show_export_queue(glm_system, project_name)
+
+    with col4:
+        if st.button("🔃 Refresh", help="Reload PROJECT_META.md"):
+            st.rerun()
+
+
+def render_meta_viewer_editor(glm_system, project_name: str):
+    """Render markdown viewer/editor for PROJECT_META.md."""
+    st.subheader("📄 PROJECT_META.md")
+
+    # Get current content
+    content = glm_system.project_meta_manager.read_project_meta(project_name)
+    update_info = glm_system.project_meta_manager.get_last_update_info(project_name)
+
+    # Show last update info
+    if update_info["timestamp"]:
+        st.caption(f"Last updated: {update_info['timestamp'][:19]} by {update_info['updated_by']}")
+
+    # Edit mode toggle
+    edit_key = f"project_meta_edit_mode_{project_name}"
+    if edit_key not in st.session_state:
+        st.session_state[edit_key] = False
+
+    col1, col2, col3 = st.columns([1, 1, 2])
+    with col1:
+        if st.button("📝 Edit" if not st.session_state[edit_key] else "👁️ View"):
+            st.session_state[edit_key] = not st.session_state[edit_key]
+            st.rerun()
+
+    with col2:
+        if st.session_state[edit_key]:
+            if st.button("💾 Save", type="primary"):
+                new_content = st.session_state.get(f"meta_editor_{project_name}", content)
+                if glm_system.project_meta_manager.save_project_meta(project_name, new_content, "manual"):
+                    st.success("Saved!")
+                    st.session_state[edit_key] = False
+                    st.rerun()
+                else:
+                    st.error("Failed to save")
+
+    # Display content
+    if st.session_state[edit_key]:
+        # Edit mode
+        st.text_area(
+            "Edit PROJECT_META.md:",
+            value=content,
+            height=500,
+            key=f"meta_editor_{project_name}",
+            help="Edit the project meta file directly. Save when done."
+        )
+    else:
+        # View mode with styled markdown
+        st.markdown(
+            """
+            <style>
+            .project-meta-view {
+                background: linear-gradient(135deg, #1e1e2e 0%, #313244 100%);
+                padding: 20px;
+                border-radius: 10px;
+                border: 1px solid #45475a;
+                max-height: 500px;
+                overflow-y: auto;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+        with st.container():
+            st.markdown(content)
+
+
+def render_orchestrator_chat(glm_system, project_name: str):
+    """Render chat interface scoped to Orchestrator agent."""
+    st.subheader("🎯 Orchestrator Chat")
+    st.caption("Chat with the Orchestrator to update PROJECT_META.md")
+
+    # Orchestrator chat history (separate from main chat)
+    chat_key = f"orchestrator_chat_{project_name}"
+    if chat_key not in st.session_state:
+        st.session_state[chat_key] = []
+
+    # Model selection for Orchestrator
+    model_options = list(glm_system.models.keys())
+    selected_model = st.selectbox(
+        "Model:",
+        model_options,
+        index=0,
+        key=f"orchestrator_model_{project_name}",
+        help="DeepSeek for complex planning, Qwen for quick updates"
+    )
+
+    # Chat input
+    question = st.text_area(
+        "Ask Orchestrator:",
+        placeholder="Examples:\n- Mark filter design as complete\n- Add new milestone for GUI\n- Update the roadmap\n- What's blocking progress?",
+        height=350,
+        key=f"orchestrator_input_{project_name}"
+    )
+
+    col1, col2 = st.columns(2)
+    with col1:
+        send_disabled = not question.strip()
+        if st.button("🚀 Send", disabled=send_disabled, key=f"orchestrator_send_{project_name}"):
+            with st.spinner("Orchestrator thinking..."):
+                # Get response from Orchestrator agent
+                result = glm_system.generate_response(
+                    prompt=question,
+                    selected_model=selected_model,
+                    use_context=True,
+                    project_name=project_name,
+                    chat_history=st.session_state[chat_key],
+                    agent_mode="Orchestrator"
+                )
+
+                response = result.get("response", "Error getting response")
+
+                # Add to chat history
+                st.session_state[chat_key].append((question, response))
+
+                # Save to project chat file
+                glm_system.project_manager.save_chat_to_project(
+                    project_name, "Orchestrator", question, response
+                )
+
+                st.rerun()
+
+    with col2:
+        if st.button("🗑️ Clear History", key=f"orchestrator_clear_{project_name}"):
+            st.session_state[chat_key] = []
+            st.rerun()
+
+    # Display recent exchanges
+    if st.session_state[chat_key]:
+        st.write("---")
+        st.caption("Recent exchanges:")
+        for i, (q, a) in enumerate(reversed(st.session_state[chat_key][-3:])):
+            with st.expander(f"Q: {q[:50]}...", expanded=(i == 0)):
+                st.markdown(f"**Question:** {q}")
+                st.markdown(f"**Response:** {a}")
+
+
+def render_sync_dialog(glm_system, project_name: str):
+    """Render sync dialog with merge/replace options."""
+    st.write("---")
+    st.subheader("🔄 Sync from Agents")
+
+    # Get all agent metas
+    all_metas = glm_system.project_meta_manager.get_all_agent_metas(project_name)
+
+    if not all_metas:
+        st.warning("No agent context files found. Chat with specialist agents first to generate context.")
+        return
+
+    st.info(f"Found {len(all_metas)} agent contexts: {', '.join(all_metas.keys())}")
+
+    # Show preview of what will be synced
+    with st.expander("Preview agent contexts"):
+        for agent, content in all_metas.items():
+            st.markdown(f"**{agent}:**")
+            st.text(content[:500] + "..." if len(content) > 500 else content)
+            st.write("---")
+
+    # Sync mode selection
+    sync_mode = st.radio(
+        "Sync mode:",
+        ["merge", "replace"],
+        format_func=lambda x: "Merge (add new info, preserve manual edits)" if x == "merge" else "Replace (regenerate from agent contexts)",
+        key=f"sync_mode_{project_name}"
+    )
+
+    if st.button("✅ Confirm Sync", type="primary"):
+        with st.spinner("Syncing from agents..."):
+            success = sync_from_agents(glm_system, project_name, sync_mode)
+            if success:
+                st.success("Sync complete! PROJECT_META.md updated.")
+                st.rerun()
+            else:
+                st.error("Sync failed. Check console for errors.")
+
+
+def sync_from_agents(glm_system, project_name: str, mode: str) -> bool:
+    """Sync PROJECT_META.md from all agent metas using Qwen."""
+    try:
+        all_metas = glm_system.project_meta_manager.get_all_agent_metas(project_name)
+        if not all_metas:
+            return False
+
+        current_meta = glm_system.project_meta_manager.read_project_meta(project_name)
+
+        # Build sync prompt
+        combined_agents = "\n\n".join([
+            f"=== {agent.upper()} AGENT ===\n{content}"
+            for agent, content in all_metas.items()
+        ])
+
+        if mode == "merge":
+            prompt = f"""You are updating a PROJECT_META.md file by MERGING new information from agent contexts.
+
+CURRENT PROJECT_META.md:
+{current_meta}
+
+AGENT CONTEXTS TO MERGE:
+{combined_agents}
+
+TASK:
+1. Read the current PROJECT_META.md structure
+2. Add new information from agent contexts WITHOUT removing existing manual edits
+3. Update milestone statuses based on what agents report
+4. Add new items to Export Queue if agents mention completed work
+5. Preserve the document structure
+
+Return ONLY the updated PROJECT_META.md content."""
+
+        else:  # replace
+            prompt = f"""You are regenerating a PROJECT_META.md file from agent contexts.
+
+PROJECT NAME: {project_name}
+
+AGENT CONTEXTS:
+{combined_agents}
+
+TASK:
+Generate a complete PROJECT_META.md with:
+- Vision & Goals (synthesized from agent work)
+- Current Roadmap (milestones from agent contexts)
+- Architecture Decisions (technical choices made)
+- Agent Handoffs (based on what each agent is doing)
+- Export Queue (items ready for implementation)
+- Completed Work (what's been finished)
+- Cross-Cutting Concerns (shared patterns)
+
+Use this exact structure:
+# Project: {project_name}
+Last Updated: {datetime.now().isoformat()}
+Updated By: auto-sync
+
+## Vision & Goals
+...
+
+## Current Roadmap
+| Milestone | Status | Target | Notes |
+...
+
+## Architecture Decisions
+...
+
+## Agent Handoffs
+...
+
+## Export Queue (Ready for Claude Code)
+...
+
+## Completed Work
+...
+
+## Cross-Cutting Concerns
+...
+
+Return ONLY the PROJECT_META.md content."""
+
+        # Use Qwen for speed
+        llm = glm_system.get_model_instance("Qwen2.5:32B (Fast)")
+        if llm:
+            updated_content = llm.invoke(prompt)
+            return glm_system.project_meta_manager.save_project_meta(
+                project_name, updated_content.strip(), "auto-sync"
+            )
+
+        return False
+
+    except Exception as e:
+        print(f"Error syncing from agents: {e}")
+        return False
+
+
+def generate_project_summary(glm_system, project_name: str):
+    """Generate an exportable project summary."""
+    project_meta = glm_system.project_meta_manager.read_project_meta(project_name)
+    if not project_meta:
+        st.warning("No PROJECT_META.md found")
+        return
+
+    prompt = f"""Summarize this project for export to a coding tool (like Claude Code).
+
+PROJECT_META.md:
+{project_meta}
+
+Create a concise summary (200 words max) covering:
+1. Project goal
+2. Current status
+3. Next steps
+4. Key technical decisions
+
+Format for easy copy-paste."""
+
+    with st.spinner("Generating summary..."):
+        llm = glm_system.get_model_instance("Qwen2.5:32B (Fast)")
+        if llm:
+            summary = llm.invoke(prompt)
+            st.code(summary, language="markdown")
+            st.info("Copy above and paste into Claude Code")
+
+
+def show_export_queue(glm_system, project_name: str):
+    """Display and manage export queue items."""
+    items = glm_system.project_meta_manager.extract_export_queue(project_name)
+
+    st.write("---")
+    st.subheader("📤 Export Queue")
+
+    if not items:
+        st.info("Export queue is empty. Add items ready for Claude Code implementation.")
+        return
+
+    st.success(f"**{len(items)} items ready for export:**")
+
+    for i, item in enumerate(items):
+        col1, col2 = st.columns([4, 1])
+        with col1:
+            st.markdown(f"- {item}")
+        with col2:
+            if st.button("📋", key=f"copy_export_{i}", help="Copy to clipboard"):
+                st.code(item)

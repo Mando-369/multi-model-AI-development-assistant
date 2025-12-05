@@ -10,6 +10,7 @@ from .project_manager import ProjectManager
 from .file_processor import FileProcessor
 from .prompts import SYSTEM_PROMPTS, AGENT_MODES
 from .context_enhancer import ContextEnhancer, enhance_vectorstore_retrieval
+from .project_meta_manager import ProjectMetaManager
 
 # Project root directory (2 levels up from this file: src/core/multi_model_system.py)
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -67,7 +68,7 @@ class MultiModelGLMSystem:
         # DeepSeek: Heavy reasoning (slower but smarter)
         # Qwen: Fast summarization and quick tasks
         self.models = {
-            "DeepSeek-R1:70B (Reasoning)": "deepseek-r1:70b",
+            "DeepSeek-R1:32B (Reasoning)": "deepseek-r1:32b",
             "Qwen2.5:32B (Fast)": "qwen2.5:32b",
         }
 
@@ -96,6 +97,7 @@ class MultiModelGLMSystem:
 
         # Initialize managers
         self.project_manager = ProjectManager()
+        self.project_meta_manager = ProjectMetaManager()
         self.file_processor = FileProcessor(self.vectorstore, self.text_splitter)
 
         # Create necessary directories (using absolute paths)
@@ -127,7 +129,7 @@ class MultiModelGLMSystem:
     def generate_response(
         self,
         prompt: str,
-        selected_model: str = "DeepSeek-R1:70B (Reasoning)",
+        selected_model: str = "DeepSeek-R1:32B (Reasoning)",
         use_context: bool = True,
         project_name: str = "Default",
         chat_history: Optional[List[Tuple[str, str]]] = None,
@@ -149,7 +151,7 @@ class MultiModelGLMSystem:
         """
         try:
             # Use selected model directly
-            final_model = selected_model if selected_model in self.models else "DeepSeek-R1:70B (Reasoning)"
+            final_model = selected_model if selected_model in self.models else "DeepSeek-R1:32B (Reasoning)"
 
             response_text = self.chat_with_model(
                 prompt, final_model, use_context, project_name, chat_history, agent_mode
@@ -167,14 +169,14 @@ class MultiModelGLMSystem:
         except Exception as e:
             # Fallback to DeepSeek
             response_text = self.chat_with_model(
-                prompt, "DeepSeek-R1:70B (Reasoning)", use_context, project_name, chat_history, agent_mode
+                prompt, "DeepSeek-R1:32B (Reasoning)", use_context, project_name, chat_history, agent_mode
             )
 
             return {
                 "response": response_text,
                 "routing": {
                     "mode": "fallback",
-                    "selected_model": "DeepSeek-R1:70B (Reasoning)",
+                    "selected_model": "DeepSeek-R1:32B (Reasoning)",
                     "agent_mode": agent_mode,
                     "error": str(e),
                 }
@@ -422,17 +424,35 @@ Return ONLY the updated context file content, nothing else."""
                     context_parts.append(f"=== {agent_mode.upper()} SPECIALIST MODE ===\n{agent_prompt_addon}")
                     print(f"🎯 Using {agent_mode} specialist mode")
 
-                # 2. Read agent meta file (pre-summarized context by Qwen)
-                # This is the KEY change - instead of loading raw KB, history, project data,
-                # we load the focused meta file that Qwen has pre-summarized
-                agent_meta = self.read_agent_meta(project_name, agent_mode)
-                if agent_meta:
-                    context_parts.append(f"=== PROJECT CONTEXT ({agent_mode}) ===\n{agent_meta}")
-                    print(f"✅ Loaded {agent_mode} agent meta ({len(agent_meta)} chars)")
-                else:
-                    print(f"ℹ️ No {agent_mode} agent meta yet - will be created after this exchange")
+                # 2. Add PROJECT_META.md (project-level strategic context)
+                # This gives all agents visibility into the master plan
+                project_meta = self.project_meta_manager.read_project_meta(project_name)
+                if project_meta:
+                    truncated_meta = self.project_meta_manager.truncate_for_context(project_meta, max_chars=2000)
+                    context_parts.append(f"=== PROJECT OVERVIEW ===\n{truncated_meta}")
+                    print(f"✅ Loaded PROJECT_META.md ({len(truncated_meta)} chars)")
 
-                # 3. Only include last exchange for immediate continuity
+                # 3. Read agent meta file (pre-summarized context by Qwen)
+                # Special case for Orchestrator: load ALL agent metas for cross-agent synthesis
+                if agent_mode == "Orchestrator":
+                    all_agent_metas = self.project_meta_manager.get_all_agent_metas(project_name)
+                    if all_agent_metas:
+                        combined_metas = "\n\n".join([
+                            f"--- {mode.upper()} AGENT ---\n{content[:800]}{'...' if len(content) > 800 else ''}"
+                            for mode, content in all_agent_metas.items()
+                        ])
+                        context_parts.append(f"=== ALL AGENT CONTEXTS ===\n{combined_metas}")
+                        print(f"✅ Loaded {len(all_agent_metas)} agent metas for Orchestrator")
+                else:
+                    # Standard agent: load only its own meta
+                    agent_meta = self.read_agent_meta(project_name, agent_mode)
+                    if agent_meta:
+                        context_parts.append(f"=== {agent_mode.upper()} AGENT CONTEXT ===\n{agent_meta}")
+                        print(f"✅ Loaded {agent_mode} agent meta ({len(agent_meta)} chars)")
+                    else:
+                        print(f"ℹ️ No {agent_mode} agent meta yet - will be created after this exchange")
+
+                # 4. Only include last exchange for immediate continuity
                 # (More history is already summarized in the agent meta file)
                 if chat_history and len(chat_history) > 0:
                     last_q, last_a = chat_history[-1]

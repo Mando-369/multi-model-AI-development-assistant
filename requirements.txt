@@ -45,7 +45,6 @@ easyocr>=1.7.0
 # Download from: https://ollama.ai/
 #
 # Required Ollama models:
-# ollama pull deepseek-r1:70b
-# ollama pull qwen2.5-coder:32b
-# ollama pull qwen2.5:32b
-# ollama pull nomic-embed-text
+# ollama pull deepseek-r1:32b    # Reasoning, planning, architecture
+# ollama pull qwen2.5:32b        # Summarization, titles, fast tasks
+# ollama pull nomic-embed-text   # Embeddings for knowledge base

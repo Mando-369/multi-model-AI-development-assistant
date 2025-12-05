@@ -233,7 +233,7 @@ def render_system_monitor(glm_system):
                     st.write(f"**Avg Response:** {avg_time}ms")
 
                 # Show app models vs all Ollama models
-                app_models = ["deepseek-r1:70b", "qwen2.5:32b"]
+                app_models = ["deepseek-r1:32b", "qwen2.5:32b"]
                 all_models = ollama_status.get("models", [])
 
                 st.write(f"**App Models:** 2 configured")
@@ -279,10 +279,10 @@ def render_system_monitor(glm_system):
         st.subheader("🤖 System Models")
 
         model_info = {
-            "DeepSeek-R1:70B": {
-                "ollama_name": "deepseek-r1:70b",
+            "DeepSeek-R1:32B": {
+                "ollama_name": "deepseek-r1:32b",
                 "purpose": "Deep reasoning, planning, architecture decisions",
-                "params": "70B",
+                "params": "32B",
                 "specialty": "Chain-of-thought reasoning with <think> tags"
             },
             "Qwen2.5:32B": {

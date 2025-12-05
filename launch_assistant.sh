@@ -16,7 +16,7 @@ fi
 # Step 2: Pull/verify models (don't run them - just ensure they're available)
 echo ""
 echo "📦 Verifying models..."
-models=("deepseek-r1:70b" "qwen2.5-coder:32b" "qwen2.5:32b" "nomic-embed-text")
+models=("deepseek-r1:32b" "qwen2.5-coder:32b" "qwen2.5:32b" "nomic-embed-text")
 for model in "${models[@]}"; do
     if ollama list | grep -q "$model"; then
         echo "✅ $model ready"

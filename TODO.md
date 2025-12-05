@@ -34,11 +34,36 @@
 
 ---
 
+## Completed (v2.1) - Project Meta Feature
+
+### Project Meta System
+- [x] Orchestrator agent mode (project management specialist)
+- [x] PROJECT_META.md per project (vision, roadmap, decisions)
+- [x] Project Meta tab with viewer/editor (first tab position)
+- [x] Orchestrator chat interface in Project Meta tab
+- [x] Inject PROJECT_META.md into all agent contexts
+- [x] Sync from Agents feature (merge/replace options)
+- [x] Quick action buttons (Generate Summary, Export to Claude)
+
+### Context Hierarchy (All Agents)
+```
+Agent System Prompt → PROJECT_META.md → Agent Meta → Last Exchange → Question
+```
+
+### Files Created/Modified
+- `src/core/project_meta_manager.py` (new)
+- `src/ui/project_meta_ui.py` (new)
+- `src/core/prompts.py` (added Orchestrator)
+- `src/core/multi_model_system.py` (context injection)
+- `main.py` (Project Meta as first tab)
+
+---
+
 ## Current Model Configuration
 
 | Model | Purpose |
 |-------|---------|
-| DeepSeek-R1:70B | Reasoning, planning, architecture |
+| DeepSeek-R1:32B | Reasoning, planning, architecture |
 | Qwen2.5:32B | Summarization, titles, fast tasks |
 
 ---
@@ -61,7 +86,7 @@
 ```
 Streamlit (Local)              Your Coding Tool
 ┌────────────────────┐         ┌─────────────────────┐
-│ DeepSeek-R1:70B    │  Copy   │ Claude Code         │
+│ DeepSeek-R1:32B    │  Copy   │ Claude Code         │
 │ └─ Reasoning       │ ──────► │ Cursor              │
 │                    │  Save   │ Codex               │
 │ Qwen2.5:32B        │         │ Any IDE             │
@@ -73,4 +98,4 @@ Streamlit (Local)              Your Coding Tool
 
 ---
 
-*Updated: December 2024 - v2.0*
+*Updated: December 2024 - v2.1*

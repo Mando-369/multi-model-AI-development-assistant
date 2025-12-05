@@ -9,7 +9,7 @@ class UnifiedCodingAssistant:
         self.hrm = HRMOrchestrator()
 
         # Models via Ollama
-        self.deepseek_r1 = "deepseek-r1:70b"
+        self.deepseek_r1 = "deepseek-r1:32b"
         self.qwen_coder = "qwen2.5-coder:32b"
         self.qwen_math = "qwen2.5:32b"
 

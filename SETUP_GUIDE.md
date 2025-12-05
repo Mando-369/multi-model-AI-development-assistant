@@ -5,7 +5,7 @@
 A local, offline AI reasoning assistant for FAUST/JUCE audio DSP development. Use alongside your preferred coding tools (Claude Code, Cursor, Codex).
 
 **Key Features:**
-- **DeepSeek-R1:70B** - Deep reasoning, planning, architecture decisions
+- **DeepSeek-R1:32B** - Deep reasoning, planning, architecture decisions
 - **Qwen2.5:32B** - Fast summarization, titles, quick tasks
 - **Specialist Agent Modes** - FAUST, JUCE, Math, Physics/Electronics
 - **Export Buttons** - Copy, Save, Format for Claude
@@ -18,7 +18,7 @@ A local, offline AI reasoning assistant for FAUST/JUCE audio DSP development. Us
 2. **Ollama** installed ([Download here](https://ollama.ai/))
 3. **System Requirements**:
    - macOS with Apple Silicon (M4 Max recommended)
-   - 64GB+ RAM (128GB recommended for 70B model)
+   - 64GB+ RAM (32B models run well on 64GB)
    - 200GB+ storage for models
 
 ## Installation
@@ -38,7 +38,7 @@ curl -fsSL https://ollama.ai/install.sh | sh
 ollama serve
 
 # Pull required models
-ollama pull deepseek-r1:70b    # Primary reasoning
+ollama pull deepseek-r1:32b    # Primary reasoning
 ollama pull qwen2.5:32b        # Fast summarization
 
 # Verify installation
@@ -111,7 +111,7 @@ Models are defined in `src/core/multi_model_system.py`:
 
 ```python
 self.models = {
-    "DeepSeek-R1:70B (Reasoning)": "deepseek-r1:70b",
+    "DeepSeek-R1:32B (Reasoning)": "deepseek-r1:32b",
     "Qwen2.5:32B (Fast)": "qwen2.5:32b",
 }
 ```
@@ -153,7 +153,7 @@ ollama list     # Check available models
 ### Memory Issues
 ```bash
 # Use smaller model variants
-ollama pull deepseek-r1:32b  # Instead of 70b
+ollama pull deepseek-r1:14b  # Use smaller variant if needed
 ```
 
 ### Reset Knowledge Base

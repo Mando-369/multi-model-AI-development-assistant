@@ -11,6 +11,7 @@ from src.ui import (
     render_chat_interface,
     render_system_monitor,
 )
+from src.ui.project_meta_ui import render_project_meta_tab
 
 
 def main():
@@ -98,17 +99,17 @@ def main():
     selected_project = render_project_management(st.session_state.multi_glm_system)
 
     # Tab options
-    tab_options = ["💬 AI Chat", "📝 Code Editor", "📚 Knowledge Base", "🖥️ System Monitor"]
-    tab_keys = ["chat", "editor", "kb", "monitor"]  # Short keys for URL
+    tab_options = ["📋 Project Meta", "💬 AI Chat", "📝 Code Editor", "📚 Knowledge Base", "🖥️ System Monitor"]
+    tab_keys = ["meta", "chat", "editor", "kb", "monitor"]  # Short keys for URL
 
     # Initialize active tab - check URL params first for persistence across refreshes
     if "active_tab" not in st.session_state:
         query_params = st.query_params
-        url_tab = query_params.get("tab", "chat")
+        url_tab = query_params.get("tab", "meta")
         if url_tab in tab_keys:
             st.session_state.active_tab = tab_options[tab_keys.index(url_tab)]
         else:
-            st.session_state.active_tab = "💬 AI Chat"
+            st.session_state.active_tab = "📋 Project Meta"
 
     # Tab selector that persists selection
     selected_tab = st.radio(
@@ -128,7 +129,10 @@ def main():
     st.divider()
 
     # Render content based on selected tab
-    if selected_tab == "💬 AI Chat":
+    if selected_tab == "📋 Project Meta":
+        render_project_meta_tab(st.session_state.multi_glm_system, selected_project)
+
+    elif selected_tab == "💬 AI Chat":
         st.header("🤖 AI Assistant Chat")
         selected_model, use_context, selected_agent = render_model_selection(
             st.session_state.multi_glm_system
@@ -154,49 +158,42 @@ def main():
     render_sidebar(st.session_state.multi_glm_system)
 
     # Instructions
-    with st.expander("ℹ️ How to Use the Enhanced System with Code Editor"):
+    with st.expander("ℹ️ How To Use AI Project and Coding Assistant"):
         st.markdown(
             """
+## 📋 **Project Meta Tab** (Start Here)
+- **Strategic planning** with PROJECT_META.md for vision, roadmap, milestones
+- **Orchestrator agent** for cross-agent coordination and progress tracking
+- **Sync from Agents** to synthesize all specialist work into master plan
+- **Export Queue** for items ready for Claude Code implementation
+
 ## 💬 **AI Chat Tab**
-- **Multi-model conversations** with DeepSeek-R1, Qwen2.5-Coder, and Qwen2.5
-- **Project-based chat history** and context
-- **HRM-powered intelligent routing** for optimal model selection
+- **Specialist agent modes**: General, FAUST, JUCE, Math, Physics, Orchestrator
+- **DeepSeek-R1:32B** for deep reasoning, **Qwen2.5:32B** for fast tasks
+- **Project-based chat history** with automatic context summarization
+- **Agent meta files** that evolve with your conversations
 
 ## 📝 **Code Editor Tab**
 - **File browser** with project organization
 - **Syntax-highlighted editor** for 20+ programming languages
 - **AI-powered code assistance** with change highlighting
-- **Direct file editing** with save/revert functionality
 - **Diff view** to review AI suggestions before applying
 
 ## 📚 **Knowledge Base Tab**
-- **File upload and organization** by category
-- **FAUST, JUCE, and Python documentation** integration
-- **Bulk file processing** and statistics
+- **FAUST, JUCE documentation** integration
+- **File upload** and vector search
 
-## 🔧 **Key Editor Features**
-- **🤖 AI Code Changes**: Highlight additions, deletions, and modifications
-- **💾 Direct Save**: No copy-paste needed, edit files directly
-- **🔍 Diff Viewer**: Side-by-side, unified, or changes-only views
-- **📁 Project Files**: Include/exclude files, pattern-based filtering
-- **🎯 Multi-language**: Python, C++, FAUST, JavaScript, and more
+## 🚀 **Hybrid Workflow**
+1. **Create a named project** (Project Meta not available for Default)
+2. **Define vision & roadmap** in Project Meta tab
+3. **Work with specialist agents** (FAUST, JUCE, etc.) in AI Chat
+4. **Sync progress** back to Project Meta using Orchestrator
+5. **Export refined items** to Claude Code for implementation
 
-## 🚀 **Workflow Example**
-1. **Select/Create Project** in any tab
-2. **Open files** in the Code Editor tab
-3. **Ask AI** to modify your code with specific instructions
-4. **Review changes** in the diff viewer with highlighted modifications
-5. **Accept/Reject** AI suggestions or manually edit
-6. **Save directly** to your files
-7. **Use AI Chat** for questions about your code
+## 🎯 **Context Hierarchy**
+All agents see: Project Meta → Agent Context → Last Exchange → Your Question
 
-## 🎵 **FAUST Development**
-- **Qwen2.5-Coder model** with FAUST documentation context
-- **FAUST documentation** integrated into knowledge base
-- **Audio effect templates** and examples
-- **Real-time code suggestions** for signal processing
-
-The editor integrates seamlessly with your AI models - ask them to modify code and see exactly what changes they suggest!
+This ensures every agent knows the master plan while focusing on their specialty.
 """
         )
 

@@ -99,7 +99,7 @@ fi
 # Pull required models
 print_header "Downloading AI Models (this may take a while)"
 
-models=("deepseek-r1:70b" "qwen2.5-coder:32b" "qwen2.5:32b" "nomic-embed-text")
+models=("deepseek-r1:32b" "qwen2.5-coder:32b" "qwen2.5:32b" "nomic-embed-text")
 for model in "${models[@]}"; do
     echo -e "\n${YELLOW}Pulling $model...${NC}"
     if ollama list | grep -q "$model"; then
