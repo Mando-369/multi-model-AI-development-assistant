@@ -68,22 +68,44 @@ Agent System Prompt → PROJECT_META.md → Agent Meta → Last Exchange → Que
 
 ---
 
-## In Progress (v2.2) - Dynamic Model Selection
+## Completed (v2.2) - Dynamic Model Selection
 
-### Phase 1: Ollama Dynamic Selection
-- [ ] Model backend abstraction (`src/core/model_backends.py`)
-- [ ] Model configuration manager (`src/core/model_config.py`)
-- [ ] Ollama backend with `ollama list` discovery
-- [ ] Model Setup tab (6th tab)
-- [ ] User-assignable "Reasoning" and "Fast" model roles
-- [ ] Config persistence in `model_config.json`
-- [ ] Update all files referencing hardcoded models
+### Phase 1: Ollama Dynamic Selection ✅
+- [x] Model backend abstraction (`src/core/model_backends.py`)
+- [x] Model configuration manager (`src/core/model_config.py`)
+- [x] Ollama backend with `ollama list` discovery
+- [x] Model Setup tab (6th tab)
+- [x] User-assignable "Reasoning" and "Fast" model roles
+- [x] Config persistence in `model_config.json`
+- [x] Update all files referencing hardcoded models
+- [x] Agent mode stored in chat history for verification
+- [x] Agent badge display in conversation expanders
 
-### Phase 2: HuggingFace Backend (Future)
-- [ ] HuggingFace Transformers backend
-- [ ] MPS acceleration for Apple Silicon
+---
+
+## TODO: Phase 2 - HuggingFace Backend
+
+### HuggingFace Transformers Integration
+- [ ] Implement `HuggingFaceBackend.generate()` in `src/core/model_backends.py`
+- [ ] Implement `HuggingFaceBackend.check_availability()`
+- [ ] Model download/cache management
+- [ ] MPS acceleration for Apple Silicon (torch.device("mps"))
 - [ ] GLM-4.6V-Flash support (vision + text)
-- [ ] Image input in chat UI
+- [ ] Image input in chat UI for vision models
+- [ ] Update Model Setup UI with HuggingFace tab/section
+
+### Required Dependencies
+```bash
+pip install transformers torch accelerate
+# For GLM-4.6V specifically:
+pip install tiktoken
+```
+
+### Implementation Notes
+- HuggingFaceBackend stub exists at `src/core/model_backends.py:192`
+- Need to handle large model loading (~18GB for GLM-4.6V)
+- Consider lazy loading to avoid memory issues
+- Vision models need image preprocessing pipeline
 
 ### Architecture
 
@@ -150,4 +172,4 @@ Streamlit (Local)              Your Coding Tool
 
 ---
 
-*Updated: December 2024 - v2.1*
+*Updated: December 2024 - v2.2*
