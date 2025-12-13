@@ -1,0 +1,12 @@
+{
+  "reasoning_model": {
+    "model_id": "deepseek-r1:32b",
+    "backend": "ollama",
+    "display_name": "DeepSeek-R1:32B (Reasoning)"
+  },
+  "fast_model": {
+    "model_id": "qwen2.5:32b",
+    "backend": "ollama",
+    "display_name": "Qwen2.5:32B (Fast)"
+  }
+}

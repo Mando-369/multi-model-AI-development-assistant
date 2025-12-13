@@ -13,11 +13,19 @@ else
     echo "✅ Ollama service already running"
 fi
 
-# Step 2: Pull/verify models (don't run them - just ensure they're available)
+# Step 2: Check configured models from model_config.json
 echo ""
-echo "📦 Verifying models..."
-models=("deepseek-r1:32b" "qwen2.5-coder:32b" "qwen2.5:32b" "nomic-embed-text")
-for model in "${models[@]}"; do
+echo "📦 Verifying configured models..."
+if [ -f "model_config.json" ]; then
+    # Extract model IDs from config
+    reasoning_model=$(python3 -c "import json; print(json.load(open('model_config.json'))['reasoning_model']['model_id'])" 2>/dev/null || echo "deepseek-r1:32b")
+    fast_model=$(python3 -c "import json; print(json.load(open('model_config.json'))['fast_model']['model_id'])" 2>/dev/null || echo "qwen2.5:32b")
+else
+    reasoning_model="deepseek-r1:32b"
+    fast_model="qwen2.5:32b"
+fi
+
+for model in "$reasoning_model" "$fast_model"; do
     if ollama list | grep -q "$model"; then
         echo "✅ $model ready"
     else
@@ -34,14 +42,14 @@ if [ -d "venv" ]; then
     source venv/bin/activate
 fi
 
-# Step 4: Check HRM availability
+# Step 4: Check model configuration
 echo ""
-echo "🧠 Checking HRM module..."
-if [ -d "lib/hrm" ]; then
-    echo "✅ HRM found - MPS acceleration available on M4 Max"
-    export PYTORCH_ENABLE_MPS_FALLBACK=1
+echo "🧠 Checking model configuration..."
+if [ -f "model_config.json" ]; then
+    echo "✅ Model config found (model_config.json)"
+    echo "   Change models via ⚙️ Model Setup tab in the UI"
 else
-    echo "⚠️  HRM not found - running without hierarchical reasoning"
+    echo "⚠️  No model_config.json - will use defaults"
 fi
 
 # Step 5: Check ChromaDB databases

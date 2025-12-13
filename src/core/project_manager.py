@@ -398,7 +398,7 @@ class ProjectManager:
             print(f"Error getting project context: {e}")
             return f"Error loading context for project '{project_name}'"
 
-    def save_chat_to_project(self, project_name, model_name, question, answer):
+    def save_chat_to_project(self, project_name, model_name, question, answer, agent_mode=None):
         """Save chat to specific project with better error handling"""
         try:
             project_path = self.projects_dir / project_name
@@ -432,6 +432,7 @@ class ProjectManager:
                 "question": question,
                 "answer": answer,
                 "model": model_name,
+                "agent_mode": agent_mode or "General",
             }
 
             chats.append(new_chat)
@@ -473,12 +474,16 @@ class ProjectManager:
             with open(chat_file, "r", encoding="utf-8") as f:
                 chats = json.load(f)
 
-            chat_pairs = [(chat["question"], chat["answer"]) for chat in chats]
+            # Return tuples with agent_mode (backward compatible - default to "General" if missing)
+            chat_tuples = [
+                (chat["question"], chat["answer"], chat.get("agent_mode", "General"))
+                for chat in chats
+            ]
             print(
-                f"📚 Loaded {len(chat_pairs)} previous conversations for {model_name}"
+                f"📚 Loaded {len(chat_tuples)} previous conversations for {model_name}"
             )
 
-            return chat_pairs
+            return chat_tuples
 
         except Exception as e:
             print(f"❌ Error loading project chats: {e}")

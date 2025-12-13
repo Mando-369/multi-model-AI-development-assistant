@@ -12,6 +12,7 @@ from src.ui import (
     render_system_monitor,
 )
 from src.ui.project_meta_ui import render_project_meta_tab
+from src.ui.model_setup_ui import render_model_setup_tab
 
 
 def main():
@@ -79,7 +80,7 @@ def main():
     if "multi_glm_system" not in st.session_state:
         with st.spinner("Initializing AI system..."):
             st.session_state.multi_glm_system = MultiModelGLMSystem()
-            st.success("✅ AI system initialized (DeepSeek + Qwen)")
+            st.success("✅ AI system initialized (Reasoning + Fast models)")
 
     # Initialize editor components
     if "file_editor" not in st.session_state:
@@ -99,8 +100,8 @@ def main():
     selected_project = render_project_management(st.session_state.multi_glm_system)
 
     # Tab options
-    tab_options = ["📋 Project Meta", "💬 AI Chat", "📝 Code Editor", "📚 Knowledge Base", "🖥️ System Monitor"]
-    tab_keys = ["meta", "chat", "editor", "kb", "monitor"]  # Short keys for URL
+    tab_options = ["📋 Project Meta", "💬 AI Chat", "📝 Code Editor", "📚 Knowledge Base", "🖥️ System Monitor", "⚙️ Model Setup"]
+    tab_keys = ["meta", "chat", "editor", "kb", "monitor", "models"]  # Short keys for URL
 
     # Initialize active tab - check URL params first for persistence across refreshes
     if "active_tab" not in st.session_state:
@@ -193,6 +194,9 @@ def main():
     elif selected_tab == "🖥️ System Monitor":
         render_system_monitor(st.session_state.multi_glm_system)
 
+    elif selected_tab == "⚙️ Model Setup":
+        render_model_setup_tab(st.session_state.multi_glm_system)
+
     # Sidebar with condensed controls
     render_sidebar(st.session_state.multi_glm_system)
 
@@ -200,7 +204,13 @@ def main():
     with st.expander("ℹ️ How To Use AI Project and Coding Assistant"):
         st.markdown(
             """
-## 📋 **Project Meta Tab** (Start Here)
+## ⚙️ **Model Setup Tab** (Configure First)
+- **Dynamic model selection** - choose any Ollama model for Reasoning or Fast roles
+- **Auto-discovery** of installed models
+- **Test connections** to verify models are working
+- **Persistent configuration** saved to model_config.json
+
+## 📋 **Project Meta Tab**
 - **Strategic planning** with PROJECT_META.md for vision, roadmap, milestones
 - **Orchestrator agent** for cross-agent coordination and progress tracking
 - **Sync from Agents** to synthesize all specialist work into master plan
@@ -208,7 +218,7 @@ def main():
 
 ## 💬 **AI Chat Tab**
 - **Specialist agent modes**: General, FAUST, JUCE, Math, Physics, Orchestrator
-- **DeepSeek-R1:32B** for deep reasoning, **Qwen2.5:32B** for fast tasks
+- **Configurable models**: Reasoning model for deep thinking, Fast model for quick tasks
 - **Project-based chat history** with automatic context summarization
 - **Agent meta files** that evolve with your conversations
 
@@ -223,11 +233,12 @@ def main():
 - **File upload** and vector search
 
 ## 🚀 **Hybrid Workflow**
-1. **Create a named project** (Project Meta not available for Default)
-2. **Define vision & roadmap** in Project Meta tab
-3. **Work with specialist agents** (FAUST, JUCE, etc.) in AI Chat
-4. **Sync progress** back to Project Meta using Orchestrator
-5. **Export refined items** to Claude Code for implementation
+1. **Configure models** in Model Setup tab (or use defaults)
+2. **Create a named project** (Project Meta not available for Default)
+3. **Define vision & roadmap** in Project Meta tab
+4. **Work with specialist agents** (FAUST, JUCE, etc.) in AI Chat
+5. **Sync progress** back to Project Meta using Orchestrator
+6. **Export refined items** to Claude Code for implementation
 
 ## 🎯 **Context Hierarchy**
 All agents see: Project Meta → Agent Context → Last Exchange → Your Question

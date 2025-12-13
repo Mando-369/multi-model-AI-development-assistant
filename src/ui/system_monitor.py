@@ -232,8 +232,8 @@ def render_system_monitor(glm_system):
                 if avg_time:
                     st.write(f"**Avg Response:** {avg_time}ms")
 
-                # Show app models vs all Ollama models
-                app_models = ["deepseek-r1:32b", "qwen2.5:32b"]
+                # Show app models vs all Ollama models (dynamically from config)
+                app_models = list(glm_system.models.values())
                 all_models = ollama_status.get("models", [])
 
                 st.write(f"**App Models:** 2 configured")
@@ -278,17 +278,21 @@ def render_system_monitor(glm_system):
     with tab_models:
         st.subheader("🤖 System Models")
 
+        # Build model info dynamically from config
+        reasoning_model = glm_system.model_config.get_reasoning_model()
+        fast_model = glm_system.model_config.get_fast_model()
+
         model_info = {
-            "DeepSeek-R1:32B": {
-                "ollama_name": "deepseek-r1:32b",
+            reasoning_model.display_name: {
+                "ollama_name": reasoning_model.model_id,
                 "purpose": "Deep reasoning, planning, architecture decisions",
-                "params": "32B",
+                "role": "Reasoning",
                 "specialty": "Chain-of-thought reasoning with <think> tags"
             },
-            "Qwen2.5:32B": {
-                "ollama_name": "qwen2.5:32b",
+            fast_model.display_name: {
+                "ollama_name": fast_model.model_id,
                 "purpose": "Fast summarization, agent meta updates, quick tasks",
-                "params": "32B",
+                "role": "Fast",
                 "specialty": "Speed & efficiency"
             },
         }
@@ -299,9 +303,8 @@ def render_system_monitor(glm_system):
 
         for display_name, info in model_info.items():
             # Check if model is configured and/or in memory
-            model_key = display_name.split(":")[0]
-            is_configured = any(model_key.lower() in m.lower() for m in configured_models)
-            is_in_memory = any(model_key.lower() in m.lower() for m in in_memory_models)
+            is_configured = display_name in configured_models
+            is_in_memory = display_name in in_memory_models
 
             with st.container():
                 cols = st.columns([3, 1, 1])
@@ -310,7 +313,7 @@ def render_system_monitor(glm_system):
                     st.write(f"{status_icon} **{display_name}**")
                     st.caption(f"{info['purpose']}")
                 with cols[1]:
-                    st.write(f"`{info['params']}`")
+                    st.write(f"`{info['role']}`")
                 with cols[2]:
                     if is_in_memory:
                         st.success("In Memory")
@@ -320,7 +323,7 @@ def render_system_monitor(glm_system):
                         st.caption("Not configured")
                 st.divider()
 
-        st.info("Models are loaded on-demand when first used. Both models work together: DeepSeek-R1 for reasoning, Qwen for fast tasks.")
+        st.info("Models are loaded on-demand when first used. Both models work together: Reasoning model for complex tasks, Fast model for quick tasks.")
 
     with tab_activity:
         st.subheader("📜 Recent Activity")

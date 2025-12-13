@@ -195,7 +195,7 @@ def render_orchestrator_chat(glm_system, project_name: str):
         model_options,
         index=0,
         key=f"orchestrator_model_{project_name}",
-        help="DeepSeek for complex planning, Qwen for quick updates"
+        help="Reasoning model for complex planning, Fast model for quick updates"
     )
 
     # Chat input
@@ -223,12 +223,12 @@ def render_orchestrator_chat(glm_system, project_name: str):
 
                 response = result.get("response", "Error getting response")
 
-                # Add to chat history
-                st.session_state[chat_key].append((question, response))
+                # Add to chat history (with agent_mode)
+                st.session_state[chat_key].append((question, response, "Orchestrator"))
 
-                # Save to project chat file
+                # Save to project chat file (with agent_mode)
                 glm_system.project_manager.save_chat_to_project(
-                    project_name, "Orchestrator", question, response
+                    project_name, "Orchestrator", question, response, "Orchestrator"
                 )
 
                 # Clear any previous suggestion
@@ -261,8 +261,12 @@ def render_orchestrator_chat(glm_system, project_name: str):
     if st.session_state[chat_key]:
         st.write("---")
         st.caption(f"All exchanges ({len(st.session_state[chat_key])} total):")
-        for i, (q, a) in enumerate(reversed(st.session_state[chat_key])):
-            with st.expander(f"Q{len(st.session_state[chat_key]) - i}: {q[:50]}...", expanded=(i == 0)):
+        for i, entry in enumerate(reversed(st.session_state[chat_key])):
+            # Handle both 2-tuple (legacy) and 3-tuple (with agent_mode) formats
+            q, a = entry[0], entry[1]
+            agent = entry[2] if len(entry) == 3 else "Orchestrator"
+            with st.expander(f"Q{len(st.session_state[chat_key]) - i} [{agent}]: {q[:50]}...", expanded=(i == 0)):
+                st.caption(f"🏷️ **Agent:** {agent}")
                 st.markdown(f"**Question:** {q}")
                 st.markdown("**Response:**")
                 st.code(a, language="markdown")
@@ -275,11 +279,11 @@ def generate_meta_suggestion(glm_system, project_name: str, chat_history: list) 
         if not current_meta:
             return None
 
-        # Format recent conversation
+        # Format recent conversation (handle both 2-tuple and 3-tuple formats)
         recent_exchanges = chat_history[-5:]  # Last 5 exchanges
         conversation = "\n\n".join([
-            f"USER: {q}\nORCHESTRATOR: {a}"
-            for q, a in recent_exchanges
+            f"USER: {entry[0]}\nORCHESTRATOR: {entry[1]}"
+            for entry in recent_exchanges
         ])
 
         prompt = f"""You are updating a PROJECT_META.md file based on an Orchestrator conversation.
@@ -306,8 +310,9 @@ RULES:
 
 Return ONLY the complete updated PROJECT_META.md content, nothing else."""
 
-        # Use Qwen for fast suggestion generation
-        llm = glm_system.get_model_instance("Qwen2.5:32B (Fast)")
+        # Use fast model for suggestion generation
+        fast_model = glm_system.get_fast_model_name()
+        llm = glm_system.get_model_instance(fast_model)
         if llm:
             result = llm.invoke(prompt)
             return result.strip()
@@ -386,7 +391,7 @@ def render_sync_dialog(glm_system, project_name: str):
 
 
 def sync_from_agents(glm_system, project_name: str, mode: str) -> bool:
-    """Sync PROJECT_META.md from all agent metas using Qwen."""
+    """Sync PROJECT_META.md from all agent metas using fast model."""
     try:
         all_metas = glm_system.project_meta_manager.get_all_agent_metas(project_name)
         if not all_metas:
@@ -465,8 +470,9 @@ Updated By: auto-sync
 
 Return ONLY the PROJECT_META.md content."""
 
-        # Use Qwen for speed
-        llm = glm_system.get_model_instance("Qwen2.5:32B (Fast)")
+        # Use fast model for speed
+        fast_model = glm_system.get_fast_model_name()
+        llm = glm_system.get_model_instance(fast_model)
         if llm:
             updated_content = llm.invoke(prompt)
             return glm_system.project_meta_manager.save_project_meta(
@@ -500,7 +506,8 @@ Create a concise summary (200 words max) covering:
 
 Format for easy copy-paste."""
 
-    llm = glm_system.get_model_instance("Qwen2.5:32B (Fast)")
+    fast_model = glm_system.get_fast_model_name()
+    llm = glm_system.get_model_instance(fast_model)
     if llm:
         return llm.invoke(prompt)
     return None
@@ -527,9 +534,10 @@ def initialize_all_agents(glm_system, project_name: str) -> dict:
         agents_to_init = ["General", "FAUST", "JUCE", "Math", "Physics"]
         initialized = []
 
-        llm = glm_system.get_model_instance("Qwen2.5:32B (Fast)")
+        fast_model = glm_system.get_fast_model_name()
+        llm = glm_system.get_model_instance(fast_model)
         if not llm:
-            return {"success": False, "error": "Could not get Qwen model"}
+            return {"success": False, "error": f"Could not get fast model ({fast_model})"}
 
         # Get agent modes for specialization info
         agent_modes = AGENT_MODES

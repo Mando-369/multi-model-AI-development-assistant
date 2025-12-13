@@ -24,15 +24,15 @@ def generate_agent_context_suggestion(glm_system, project_name: str, agent_mode:
         agent_config = AGENT_MODES.get(agent_mode, AGENT_MODES["General"])
         agent_description = agent_config.get("description", "General assistant")
 
-        # Get recent chat history for this agent
+        # Get recent chat history for this agent (handle both 2-tuple and 3-tuple formats)
         chat_key = f"chat_history_{project_name}"
         chat_history = st.session_state.get(chat_key, [])
         recent_exchanges = chat_history[-5:] if chat_history else []
         chat_summary = ""
         if recent_exchanges:
             chat_summary = "\n\n".join([
-                f"Q: {q[:200]}...\nA: {a[:300]}..."
-                for q, a in recent_exchanges
+                f"Q: {entry[0][:200]}...\nA: {entry[1][:300]}..."
+                for entry in recent_exchanges
             ])
 
         prompt = f"""You are generating/updating context for a specialist AI agent.
@@ -78,8 +78,9 @@ FORMAT:
 Keep it concise (under 500 words). Focus on actionable, project-specific information.
 Return ONLY the context file content."""
 
-        # Use Qwen for fast generation
-        llm = glm_system.get_model_instance("Qwen2.5:32B (Fast)")
+        # Use fast model for generation
+        fast_model = glm_system.get_fast_model_name()
+        llm = glm_system.get_model_instance(fast_model)
         if llm:
             result = llm.invoke(prompt)
             return result.strip()
@@ -679,10 +680,10 @@ def render_model_selection(glm_system):
                 "Choose Model",
                 options=model_options,
                 index=default_model_idx,
-                help="DeepSeek for reasoning (slower but smarter), Qwen for quick tasks (faster)",
+                help="Reasoning model for complex tasks (slower), Fast model for quick tasks (faster)",
             )
-            st.caption("🧠 **DeepSeek** - Complex tasks")
-            st.caption("⚡ **Qwen** - Quick tasks")
+            st.caption("🧠 **Reasoning** - Complex tasks")
+            st.caption("⚡ **Fast** - Quick tasks")
 
             # Update URL if model changed
             if selected_model != url_model:
@@ -941,19 +942,19 @@ def render_chat_interface(glm_system, selected_model, use_context, selected_proj
 
 
 def render_summarization_tools(glm_system, chat_history, selected_project):
-    """Render summarization tools using Qwen for speed"""
+    """Render summarization tools using fast model for speed"""
     if not chat_history:
         return
 
-    st.subheader("⚡ Quick Tools (Qwen - Fast)")
+    st.subheader("⚡ Quick Tools (Fast Model)")
 
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        if st.button("📝 Generate Title", help="Use Qwen to generate a chat title"):
+        if st.button("📝 Generate Title", help="Use fast model to generate a chat title"):
             with st.spinner("Generating title..."):
-                # Get chat content
-                chat_text = "\n".join([f"Q: {q}\nA: {a[:200]}" for q, a in chat_history[-3:]])
+                # Get chat content (handle both 2-tuple and 3-tuple formats)
+                chat_text = "\n".join([f"Q: {entry[0]}\nA: {entry[1][:200]}" for entry in chat_history[-3:]])
                 title = glm_system.generate_title(chat_text)
                 st.session_state.chat_title = title
                 st.success(f"**Title:** {title}")
@@ -961,17 +962,16 @@ def render_summarization_tools(glm_system, chat_history, selected_project):
     with col2:
         if st.button("⚡ Quick Summary", help="Summarize current chat session"):
             with st.spinner("Summarizing..."):
-                chat_text = "\n".join([f"Q: {q}\nA: {a}" for q, a in chat_history])
+                chat_text = "\n".join([f"Q: {entry[0]}\nA: {entry[1]}" for entry in chat_history])
                 summary = glm_system.quick_summarize(chat_text, max_words=100)
-                st.info(f"**Summary:** {summary}")
+                st.session_state.quick_summary_result = summary
 
     with col3:
-        if st.button("📤 Export Summary for Claude", help="Create context summary for Claude"):
+        if st.button("📤 Export for Claude", help="Create context summary for Claude"):
             with st.spinner("Creating context summary..."):
-                chat_text = "\n".join([f"Q: {q}\nA: {a}" for q, a in chat_history])
+                chat_text = "\n".join([f"Q: {entry[0]}\nA: {entry[1]}" for entry in chat_history])
                 summary = glm_system.quick_summarize(chat_text, max_words=200)
-
-                formatted = f"""## Context from DeepSeek Session
+                st.session_state.export_summary_result = f"""## Context from Reasoning Session
 Project: {selected_project}
 
 ### Summary
@@ -980,12 +980,25 @@ Project: {selected_project}
 ---
 Please continue with this context and implement the discussed approach."""
 
-                st.code(formatted, language="markdown")
-                st.info("Copy above and paste into Claude Code")
-
     # Show current title if set
     if "chat_title" in st.session_state and st.session_state.chat_title:
         st.caption(f"📌 Current Title: **{st.session_state.chat_title}**")
+
+    # Show quick summary result (full width)
+    if st.session_state.get("quick_summary_result"):
+        st.info(f"**Summary:** {st.session_state.quick_summary_result}")
+        if st.button("✖️ Clear Summary", key="clear_quick_summary"):
+            st.session_state.quick_summary_result = None
+            st.rerun()
+
+    # Show export summary result (full width, easier to read and copy)
+    if st.session_state.get("export_summary_result"):
+        st.markdown("**📤 Export for Claude Code:**")
+        st.code(st.session_state.export_summary_result, language="markdown")
+        st.caption("Copy above and paste into Claude Code")
+        if st.button("✖️ Clear Export", key="clear_export_summary"):
+            st.session_state.export_summary_result = None
+            st.rerun()
 
 
 def render_chat_input(
@@ -1254,16 +1267,16 @@ My question/request:
                 response = response_data["response"]
                 routing_info = response_data.get("routing", {})
 
-            # Add to chat history
-            st.session_state[chat_key].append((question, response))
+            # Add to chat history (with agent_mode)
+            st.session_state[chat_key].append((question, response, selected_agent))
 
             # Display model used
             actual_model = routing_info.get('selected_model', selected_model)
             st.success(f"✅ Response from {actual_model}")
 
-            # Save to project file
+            # Save to project file (with agent_mode)
             glm_system.project_manager.save_chat_to_project(
-                selected_project, actual_model, question, response
+                selected_project, actual_model, question, response, selected_agent
             )
 
             st.rerun()
@@ -1351,7 +1364,7 @@ def render_agent_context(glm_system, project_name: str, agent_mode: str):
         if agent_meta:
             # Show word count
             word_count = len(agent_meta.split())
-            st.caption(f"📊 {word_count} words | Auto-updated by Qwen after each exchange")
+            st.caption(f"📊 {word_count} words | Auto-updated by fast model after each exchange")
 
             # Check if we're in edit mode
             if st.session_state.get(editing_key, False):
@@ -1443,9 +1456,28 @@ def render_recent_conversations(chat_history, selected_model):
     recent_chats = chat_history[-5:]  # Show last 5 exchanges
 
     if recent_chats:
-        st.subheader("💬 Recent Conversations")
+        # Header with collapse button
+        col_header, col_btn = st.columns([4, 1])
+        with col_header:
+            st.subheader("💬 Recent Conversations")
+        with col_btn:
+            if st.button("🔽 Collapse All", key="collapse_all_chats", use_container_width=True):
+                st.session_state.collapse_all_conversations = True
+                st.rerun()
 
-        for i, (question, answer) in enumerate(reversed(recent_chats), 1):
+        # Check if we should collapse all
+        collapse_all = st.session_state.get("collapse_all_conversations", False)
+        # Reset the flag after use (one-time collapse)
+        if collapse_all:
+            st.session_state.collapse_all_conversations = False
+
+        for i, chat_entry in enumerate(reversed(recent_chats), 1):
+            # Handle both 2-tuple (legacy) and 3-tuple (with agent_mode) formats
+            if len(chat_entry) == 3:
+                question, answer, agent_mode = chat_entry
+            else:
+                question, answer = chat_entry
+                agent_mode = "General"
             # Create preview text for collapsed state
             question_preview = question.replace("\n", " ")[:80] + (
                 "..." if len(question) > 80 else ""
@@ -1464,11 +1496,20 @@ def render_recent_conversations(chat_history, selected_model):
             else:
                 content_icon = "💡"  # General
 
+            # Determine if expanded (collapsed if collapse_all was clicked)
+            should_expand = False if collapse_all else (i <= 2)
+
+            # Get agent icon from AGENT_MODES if available
+            agent_icon = AGENT_MODES.get(agent_mode, {}).get("icon", "🤖")
+
             # Create expandable container for each chat
             with st.expander(
-                f"{content_icon} Q{len(recent_chats) - i + 1}: {question_preview}",
-                expanded=i <= 2,  # Keep last 2 exchanges expanded by default
+                f"{content_icon} Q{len(recent_chats) - i + 1} [{agent_icon} {agent_mode}]: {question_preview}",
+                expanded=should_expand,
             ):
+                # Agent badge at top
+                st.caption(f"🏷️ **Agent:** {agent_icon} {agent_mode}")
+
                 # Question section
                 st.markdown("**🙋 Your Question:**")
                 # Detect language for syntax highlighting
@@ -1580,15 +1621,28 @@ def render_full_chat_history(chat_history, selected_model):
             expanded=False,
         ):
             # Show last 10 conversations in reverse order (newest first)
-            for i, (question, answer) in enumerate(reversed(chat_history[-10:]), 1):
+            for i, chat_entry in enumerate(reversed(chat_history[-10:]), 1):
+                # Handle both 2-tuple (legacy) and 3-tuple (with agent_mode) formats
+                if len(chat_entry) == 3:
+                    question, answer, agent_mode = chat_entry
+                else:
+                    question, answer = chat_entry
+                    agent_mode = "General"
+
                 question_preview = question.replace("\n", " ")[:100] + (
                     "..." if len(question) > 100 else ""
                 )
 
+                # Get agent icon
+                agent_icon = AGENT_MODES.get(agent_mode, {}).get("icon", "🤖")
+
                 with st.expander(
-                    f"🔹 Conversation {total_messages - i + 1}: {question_preview}",
+                    f"🔹 Conv {total_messages - i + 1} [{agent_icon} {agent_mode}]: {question_preview}",
                     expanded=False,
                 ):
+                    # Agent badge
+                    st.caption(f"🏷️ **Agent:** {agent_icon} {agent_mode}")
+
                     col1, col2 = st.columns([1, 3])
 
                     with col1:

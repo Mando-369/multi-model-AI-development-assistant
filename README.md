@@ -7,9 +7,19 @@
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%20(M4%20Max)-silver)](https://www.apple.com/)
 
+## Quick Start
+
+```bash
+source venv/bin/activate
+streamlit run main.py
+# Access at http://localhost:8501
+```
+
+---
+
 ## Overview
 
-A **local, offline AI assistant** for deep reasoning and complex problem-solving. Designed to work alongside your preferred coding tools (Claude Code, GitHub Codex, Cursor, etc.) - you get the reasoning power of DeepSeek-R1:32B running locally, then copy/export the results to your implementation tool of choice.
+A **local, offline AI assistant** for deep reasoning and complex problem-solving. Designed to work alongside your preferred coding tools (Claude Code, GitHub Codex, Cursor, etc.) - you get local reasoning power with configurable models, then copy/export the results to your implementation tool of choice.
 
 ### Why This Approach?
 
@@ -27,7 +37,7 @@ A **local, offline AI assistant** for deep reasoning and complex problem-solving
 
 - **Project Meta System**: Strategic planning with PROJECT_META.md per project
 - **Orchestrator Agent**: Cross-agent coordination, roadmaps, milestones
-- **2-Model System**: DeepSeek-R1:32B (reasoning) + Qwen2.5:32B (fast tasks)
+- **2-Model System**: Configurable Reasoning + Fast models (select any Ollama model)
 - **Specialist Agent Modes**: FAUST, JUCE, Math, Physics/Electronics
 - **Context Hierarchy**: All agents see project overview + their specialist context
 - **Export Queue**: Items ready for Claude Code implementation
@@ -36,10 +46,14 @@ A **local, offline AI assistant** for deep reasoning and complex problem-solving
 
 ## Models
 
-| Model | Purpose | When to Use |
-|-------|---------|-------------|
-| **DeepSeek-R1:32B** | Deep reasoning, planning, architecture | Complex questions, debugging, design decisions |
-| **Qwen2.5:32B** | Fast summarization, titles | Quick tasks, generating titles, simple lookups |
+Models are **configurable** via the **⚙️ Model Setup** tab. Select any installed Ollama model for each role:
+
+| Role | Purpose | Default |
+|------|---------|---------|
+| **Reasoning** | Deep reasoning, planning, architecture | `deepseek-r1:32b` |
+| **Fast** | Summarization, titles, quick tasks | `qwen2.5:32b` |
+
+Change models anytime - configuration persists in `model_config.json`.
 
 ## Specialist Modes
 
@@ -128,21 +142,26 @@ streamlit run main.py
 | **📝 Code Editor** | File browser and syntax-highlighted editor |
 | **📚 Knowledge Base** | Upload and manage documentation |
 | **🖥️ System Monitor** | System status dashboard |
+| **⚙️ Model Setup** | Configure which Ollama models to use |
 
 ## Project Structure
 
 ```
 multi-model-AI-development-assistant/
 ├── main.py                    # Streamlit entry point
+├── model_config.json          # Model role configuration
 ├── src/
 │   ├── core/
 │   │   ├── multi_model_system.py    # Model orchestration & context injection
+│   │   ├── model_backends.py        # Backend abstraction (Ollama, HuggingFace)
+│   │   ├── model_config.py          # Model configuration manager
 │   │   ├── project_meta_manager.py  # PROJECT_META.md operations
 │   │   ├── prompts.py               # System prompts & agent modes
 │   │   ├── project_manager.py       # Project management
 │   │   └── context_enhancer.py      # RAG context enhancement
 │   └── ui/
 │       ├── project_meta_ui.py       # Project Meta tab
+│       ├── model_setup_ui.py        # Model Setup tab
 │       ├── ui_components.py         # UI components
 │       ├── editor_ui.py             # Code editor
 │       └── file_browser.py          # File browser
@@ -165,7 +184,12 @@ Easy to identify which specialist mode was used!
 
 ## Roadmap
 
-### Current (v2.1)
+### Current (v2.2)
+- [x] **Dynamic Model Selection** - Choose any Ollama model for Reasoning/Fast roles
+- [x] **Model Setup Tab** - UI for model configuration
+- [x] **Backend Abstraction** - Prepared for HuggingFace/Transformers support
+
+### Completed (v2.1)
 - [x] Project Meta System with PROJECT_META.md per project
 - [x] Orchestrator agent mode (roadmaps, cross-agent coordination)
 - [x] Context hierarchy (all agents see project overview)
@@ -176,14 +200,14 @@ Easy to identify which specialist mode was used!
 - [x] 2-model simplified architecture
 - [x] Specialist agent modes (FAUST/JUCE/Math/Physics)
 - [x] Export buttons (Copy/Save/Format)
-- [x] Summarization tools using Qwen
+- [x] Summarization tools
 - [x] Persistent tab navigation
 
 ### Future
+- [ ] **HuggingFace Backend** - GLM-4.6V and other Transformers models via MPS
 - [ ] **IDE Integration** - Cline/Continue.dev integration when model chaining is supported
 - [ ] **MCP Server** - Expose ChromaDB knowledge base to external tools
 - [ ] **Voice input** - Whisper integration for hands-free queries
-- [ ] **WebAssembly FAUST** - In-browser DSP testing
 
 ## Troubleshooting
 

@@ -99,7 +99,8 @@ fi
 # Pull required models
 print_header "Downloading AI Models (this may take a while)"
 
-models=("deepseek-r1:32b" "qwen2.5-coder:32b" "qwen2.5:32b" "nomic-embed-text")
+# Default models (can be changed later in Model Setup tab)
+models=("deepseek-r1:32b" "qwen2.5:32b")
 for model in "${models[@]}"; do
     echo -e "\n${YELLOW}Pulling $model...${NC}"
     if ollama list | grep -q "$model"; then
@@ -207,48 +208,26 @@ EOF
 python init_chromadb.py
 rm init_chromadb.py
 
-# Create config file
-print_header "Creating Configuration"
-if [ ! -f "config.yaml" ]; then
-    cat > config.yaml << 'EOF'
-# Multi-Model AI Assistant Configuration
-models:
-  deepseek_r1:
-    temperature: 0.6
-    top_p: 0.95
-    max_tokens: 32768
-    timeout: 120
-  qwen_coder:
-    temperature: 0.7
-    top_p: 0.8
-    max_tokens: 8192
-    timeout: 90
-  qwen_math:
-    temperature: 0.6
-    top_p: 0.95
-    max_tokens: 8192
-    timeout: 60
-
-hrm:
-  complexity_threshold: 0.6
-  max_subtasks: 10
-  enable_mps: true
-  cache_size: 100
-
-chromadb:
-  embedding_model: "all-MiniLM-L6-v2"
-  embedding_dim: 768
-  collection_size: 10000
-  similarity_threshold: 0.7
-
-ui:
-  theme: "dark"
-  code_editor_height: 400
-  max_chat_history: 100
+# Create model config file (if not exists)
+print_header "Creating Model Configuration"
+if [ ! -f "model_config.json" ]; then
+    cat > model_config.json << 'EOF'
+{
+  "reasoning_model": {
+    "model_id": "deepseek-r1:32b",
+    "backend": "ollama",
+    "display_name": "DeepSeek-R1:32B (Reasoning)"
+  },
+  "fast_model": {
+    "model_id": "qwen2.5:32b",
+    "backend": "ollama",
+    "display_name": "Qwen2.5:32B (Fast)"
+  }
+}
 EOF
-    print_success "Configuration file created"
+    print_success "Model configuration created (model_config.json)"
 else
-    print_success "Configuration file already exists"
+    print_success "Model configuration already exists"
 fi
 
 # Download sample documentation

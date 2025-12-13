@@ -8,9 +8,11 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from .project_manager import ProjectManager
 from .file_processor import FileProcessor
-from .prompts import SYSTEM_PROMPTS, AGENT_MODES
+from .prompts import SYSTEM_PROMPTS, AGENT_MODES, get_system_prompt_for_model
 from .context_enhancer import ContextEnhancer, enhance_vectorstore_retrieval
 from .project_meta_manager import ProjectMetaManager
+from .model_config import get_model_config, ModelConfigManager
+from .model_backends import get_backend_manager, BackendManager
 
 # Project root directory (2 levels up from this file: src/core/multi_model_system.py)
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -64,17 +66,36 @@ def is_meta_question(question: str) -> bool:
 
 class MultiModelGLMSystem:
     def __init__(self):
-        # Simplified 2-model configuration
-        # DeepSeek: Heavy reasoning (slower but smarter)
-        # Qwen: Fast summarization and quick tasks
-        self.models = {
-            "DeepSeek-R1:32B (Reasoning)": "deepseek-r1:32b",
-            "Qwen2.5:32B (Fast)": "qwen2.5:32b",
-        }
+        # Dynamic model configuration from config manager
+        self.model_config = get_model_config()
+        self.backend_manager = get_backend_manager()
 
         # Cache for model instances
         self._model_instances = {}
 
+        # Initialize system components
+        self._initialize_system()
+
+    @property
+    def models(self) -> Dict[str, str]:
+        """Get current model configuration as display_name -> model_id dict."""
+        return self.model_config.get_models_dict()
+
+    def get_reasoning_model_name(self) -> str:
+        """Get the display name of the reasoning model."""
+        return self.model_config.get_reasoning_display_name()
+
+    def get_fast_model_name(self) -> str:
+        """Get the display name of the fast model."""
+        return self.model_config.get_fast_display_name()
+
+    def reload_config(self):
+        """Reload model configuration and clear cache."""
+        self.model_config.reload()
+        self._model_instances.clear()
+
+    def _initialize_system(self):
+        """Initialize embeddings, vectorstore, and managers."""
         # Initialize embeddings and vectorstore
         self.embeddings = HuggingFaceEmbeddings(
             model_name="all-MiniLM-L6-v2",
@@ -105,7 +126,7 @@ class MultiModelGLMSystem:
         (PROJECT_ROOT / "projects").mkdir(exist_ok=True)
         (PROJECT_ROOT / "chroma_db").mkdir(exist_ok=True)
         (PROJECT_ROOT / "faust_documentation").mkdir(exist_ok=True)
-        
+
         # Initialize context enhancer after vectorstore is ready
         self.context_enhancer = ContextEnhancer(self.vectorstore)
 
@@ -115,10 +136,19 @@ class MultiModelGLMSystem:
             model_id = self.models.get(model_name)
             if model_id:
                 try:
+                    # Determine model role for system prompt
+                    model_role = None
+                    if model_name == self.get_reasoning_model_name():
+                        model_role = "reasoning"
+                    elif model_name == self.get_fast_model_name():
+                        model_role = "fast"
+
+                    system_prompt = get_system_prompt_for_model(model_name, model_role)
+
                     self._model_instances[model_name] = Ollama(
                         model=model_id,
                         temperature=0.7,
-                        system=SYSTEM_PROMPTS.get(model_name, ""),
+                        system=system_prompt,
                     )
                 except Exception as e:
                     print(f"Error loading model {model_name}: {e}")
@@ -129,7 +159,7 @@ class MultiModelGLMSystem:
     def generate_response(
         self,
         prompt: str,
-        selected_model: str = "DeepSeek-R1:32B (Reasoning)",
+        selected_model: str = None,
         use_context: bool = True,
         project_name: str = "Default",
         chat_history: Optional[List[Tuple[str, str]]] = None,
@@ -140,7 +170,7 @@ class MultiModelGLMSystem:
 
         Args:
             prompt: User's request
-            selected_model: Model to use (DeepSeek for reasoning, Qwen for fast tasks)
+            selected_model: Model to use (defaults to reasoning model from config)
             use_context: Whether to use knowledge base context
             project_name: Project name for context
             chat_history: Previous conversation
@@ -149,9 +179,13 @@ class MultiModelGLMSystem:
         Returns:
             Dict with response and model info
         """
+        # Default to reasoning model from config
+        if selected_model is None:
+            selected_model = self.get_reasoning_model_name()
+
         try:
             # Use selected model directly
-            final_model = selected_model if selected_model in self.models else "DeepSeek-R1:32B (Reasoning)"
+            final_model = selected_model if selected_model in self.models else self.get_reasoning_model_name()
 
             response_text = self.chat_with_model(
                 prompt, final_model, use_context, project_name, chat_history, agent_mode
@@ -167,23 +201,24 @@ class MultiModelGLMSystem:
             }
 
         except Exception as e:
-            # Fallback to DeepSeek
+            # Fallback to reasoning model
+            reasoning_model = self.get_reasoning_model_name()
             response_text = self.chat_with_model(
-                prompt, "DeepSeek-R1:32B (Reasoning)", use_context, project_name, chat_history, agent_mode
+                prompt, reasoning_model, use_context, project_name, chat_history, agent_mode
             )
 
             return {
                 "response": response_text,
                 "routing": {
                     "mode": "fallback",
-                    "selected_model": "DeepSeek-R1:32B (Reasoning)",
+                    "selected_model": reasoning_model,
                     "agent_mode": agent_mode,
                     "error": str(e),
                 }
             }
 
     def quick_summarize(self, text: str, max_words: int = 50) -> str:
-        """Use Qwen for fast summarization.
+        """Use fast model for summarization.
 
         Args:
             text: Text to summarize
@@ -199,17 +234,18 @@ class MultiModelGLMSystem:
 Summary:"""
 
         try:
-            llm = self.get_model_instance("Qwen2.5:32B (Fast)")
+            fast_model = self.get_fast_model_name()
+            llm = self.get_model_instance(fast_model)
             if llm:
                 response = llm.invoke(prompt)
                 return response.strip()
             else:
-                return "Error: Qwen model not available"
+                return f"Error: Fast model ({fast_model}) not available"
         except Exception as e:
             return f"Error summarizing: {e}"
 
     def generate_title(self, chat_history: str, max_words: int = 6) -> str:
-        """Generate a short title for a chat session using Qwen (fast).
+        """Generate a short title for a chat session using fast model.
 
         Args:
             chat_history: The chat content to title
@@ -227,7 +263,8 @@ Conversation:
 Title:"""
 
         try:
-            llm = self.get_model_instance("Qwen2.5:32B (Fast)")
+            fast_model = self.get_fast_model_name()
+            llm = self.get_model_instance(fast_model)
             if llm:
                 response = llm.invoke(prompt)
                 # Clean up response - take first line, strip quotes
@@ -241,7 +278,7 @@ Title:"""
             return "Untitled Chat"
 
     def summarize_multiple_chats(self, chat_contents: List[str], max_words: int = 200) -> str:
-        """Summarize multiple chat sessions into a combined context using Qwen (fast).
+        """Summarize multiple chat sessions into a combined context using fast model.
 
         Args:
             chat_contents: List of chat content strings
@@ -261,12 +298,13 @@ Conversations:
 Context Summary:"""
 
         try:
-            llm = self.get_model_instance("Qwen2.5:32B (Fast)")
+            fast_model = self.get_fast_model_name()
+            llm = self.get_model_instance(fast_model)
             if llm:
                 response = llm.invoke(prompt)
                 return response.strip()
             else:
-                return "Error: Qwen model not available"
+                return f"Error: Fast model ({fast_model}) not available"
         except Exception as e:
             return f"Error summarizing: {e}"
 
@@ -320,9 +358,9 @@ Context Summary:"""
         question: str,
         answer: str,
     ) -> bool:
-        """Update agent's meta context file using Qwen (fast).
+        """Update agent's meta context file using fast model.
 
-        Qwen analyzes the current exchange and updates the meta file
+        Fast model analyzes the current exchange and updates the meta file
         with relevant context for future questions.
         """
         try:
@@ -332,7 +370,7 @@ Context Summary:"""
             # Get agent config for context
             agent_config = AGENT_MODES.get(agent_mode, AGENT_MODES["General"])
 
-            # Build the update prompt for Qwen
+            # Build the update prompt
             # 2000 words allows detailed context while staying within model limits
             # (~3000 tokens, small fraction of 32K+ context windows)
             prompt = f"""You are updating a context summary file for a {agent_mode} coding assistant.
@@ -372,14 +410,15 @@ Structure it as:
 
 Return ONLY the updated context file content, nothing else."""
 
-            llm = self.get_model_instance("Qwen2.5:32B (Fast)")
+            fast_model = self.get_fast_model_name()
+            llm = self.get_model_instance(fast_model)
             if llm:
                 updated_meta = llm.invoke(prompt)
                 meta_path.write_text(updated_meta.strip(), encoding="utf-8")
                 print(f"✅ Updated {agent_mode} agent meta for {project_name}")
                 return True
             else:
-                print("⚠️ Qwen not available for meta update")
+                print(f"⚠️ Fast model ({fast_model}) not available for meta update")
                 return False
 
         except Exception as e:
@@ -455,7 +494,9 @@ Return ONLY the updated context file content, nothing else."""
                 # 4. Only include last exchange for immediate continuity
                 # (More history is already summarized in the agent meta file)
                 if chat_history and len(chat_history) > 0:
-                    last_q, last_a = chat_history[-1]
+                    # Handle both 2-tuple (legacy) and 3-tuple (with agent_mode) formats
+                    last_entry = chat_history[-1]
+                    last_q, last_a = last_entry[0], last_entry[1]
                     # Truncate to keep it focused
                     last_exchange = f"Previous exchange:\nUser: {last_q[:300]}{'...' if len(last_q) > 300 else ''}\nAssistant: {last_a[:500]}{'...' if len(last_a) > 500 else ''}"
                     context_parts.append(f"=== LAST EXCHANGE ===\n{last_exchange}")

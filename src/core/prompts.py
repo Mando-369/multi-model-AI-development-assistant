@@ -1,5 +1,5 @@
 # Enhanced system prompts for different AI models with domain expertise
-# Simplified 2-model setup: DeepSeek (reasoning) + Qwen (fast tasks)
+# Dynamic 2-model setup: Reasoning model + Fast model (user configurable)
 
 # Specialist Agent Modes - domain-specific expertise with documentation context
 AGENT_MODES = {
@@ -289,8 +289,9 @@ Always provide actionable updates with clear status changes."""
     }
 }
 
-SYSTEM_PROMPTS = {
-    "DeepSeek-R1:32B (Reasoning)": """You are an expert software architect and systems designer with advanced reasoning and debugging capabilities.
+# Role-based system prompts (for any model in that role)
+ROLE_PROMPTS = {
+    "reasoning": """You are an expert software architect and systems designer with advanced reasoning and debugging capabilities.
 
 Core Expertise:
 - Deep logical reasoning and complex problem decomposition
@@ -318,7 +319,7 @@ Code Standards:
 
 Always explain your architectural decisions, trade-offs, and reasoning chain.""",
 
-    "Qwen2.5:32B (Fast)": """You are a fast, efficient assistant for quick tasks like summarization, titles, and simple questions.
+    "fast": """You are a fast, efficient assistant for quick tasks like summarization, titles, and simple questions.
 
 Your strengths:
 - Quick, concise responses
@@ -328,8 +329,44 @@ Your strengths:
 - Fast code explanations
 
 Keep responses brief and to the point. You're optimized for speed, not deep reasoning.
-For complex tasks, recommend using DeepSeek-R1:32B instead.""",
+For complex tasks, recommend using the reasoning model instead.""",
 }
+
+# Legacy SYSTEM_PROMPTS for backwards compatibility
+# Maps model display names to prompts
+SYSTEM_PROMPTS = {
+    "DeepSeek-R1:32B (Reasoning)": ROLE_PROMPTS["reasoning"],
+    "Qwen2.5:32B (Fast)": ROLE_PROMPTS["fast"],
+}
+
+
+def get_system_prompt_for_model(model_display_name: str, model_role: str = None) -> str:
+    """Get system prompt for a model.
+
+    Args:
+        model_display_name: The display name of the model
+        model_role: Optional role hint ('reasoning' or 'fast')
+
+    Returns:
+        System prompt string
+    """
+    # First try exact match in SYSTEM_PROMPTS
+    if model_display_name in SYSTEM_PROMPTS:
+        return SYSTEM_PROMPTS[model_display_name]
+
+    # Then try role-based lookup
+    if model_role and model_role in ROLE_PROMPTS:
+        return ROLE_PROMPTS[model_role]
+
+    # Finally, try to infer role from model name
+    model_lower = model_display_name.lower()
+    if any(keyword in model_lower for keyword in ['reasoning', 'r1', 'think', 'cot']):
+        return ROLE_PROMPTS["reasoning"]
+    elif any(keyword in model_lower for keyword in ['fast', 'quick', 'turbo', 'flash']):
+        return ROLE_PROMPTS["fast"]
+
+    # Default to reasoning prompt
+    return ROLE_PROMPTS["reasoning"]
 
 # Enhanced FAUST-specific prompt templates with detailed specifications
 FAUST_QUICK_PROMPTS = {
@@ -391,6 +428,7 @@ FAUST_QUICK_PROMPTS = {
 
 # Enhanced model configuration with detailed use cases
 MODEL_INFO = {
+    # Legacy entries for backwards compatibility
     "DeepSeek-R1:32B (Reasoning)": """**Deep Reasoning Expert** (32B)
 **Best for:** Complex reasoning, planning, architectural decisions, detailed analysis
 **Specializes in:** Deep reasoning chains, problem decomposition, FAUST/JUCE/C++
@@ -402,6 +440,19 @@ MODEL_INFO = {
 **Specializes in:** Speed, concise responses, quick tasks
 **Use when:** Summarizing chats, generating titles, quick lookups
 **Note:** Fast response time - ideal for simple, quick tasks""",
+}
+
+# Role-based model info (for dynamically selected models)
+ROLE_MODEL_INFO = {
+    "reasoning": """**Reasoning Model**
+**Best for:** Complex reasoning, planning, architectural decisions, detailed analysis
+**Specializes in:** Deep reasoning chains, problem decomposition, FAUST/JUCE/C++
+**Use when:** Main chat, complex questions, code design, debugging""",
+
+    "fast": """**Fast Model**
+**Best for:** Quick summarization, generating titles, simple questions
+**Specializes in:** Speed, concise responses, quick tasks
+**Use when:** Summarizing chats, generating titles, quick lookups""",
 }
 
 # JUCE-specific integration patterns for enhanced context

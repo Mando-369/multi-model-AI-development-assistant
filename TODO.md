@@ -68,6 +68,58 @@ Agent System Prompt → PROJECT_META.md → Agent Meta → Last Exchange → Que
 
 ---
 
+## In Progress (v2.2) - Dynamic Model Selection
+
+### Phase 1: Ollama Dynamic Selection
+- [ ] Model backend abstraction (`src/core/model_backends.py`)
+- [ ] Model configuration manager (`src/core/model_config.py`)
+- [ ] Ollama backend with `ollama list` discovery
+- [ ] Model Setup tab (6th tab)
+- [ ] User-assignable "Reasoning" and "Fast" model roles
+- [ ] Config persistence in `model_config.json`
+- [ ] Update all files referencing hardcoded models
+
+### Phase 2: HuggingFace Backend (Future)
+- [ ] HuggingFace Transformers backend
+- [ ] MPS acceleration for Apple Silicon
+- [ ] GLM-4.6V-Flash support (vision + text)
+- [ ] Image input in chat UI
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────┐
+│           Model Configuration Tab           │
+├─────────────────────────────────────────────┤
+│  Backend: [Ollama ▼]                        │
+│                                             │
+│  Reasoning Model: [scan & select ▼]         │
+│  Fast Model:      [scan & select ▼]         │
+│                                             │
+│  [Scan Available] [Test Connection] [Save]  │
+└─────────────────────────────────────────────┘
+```
+
+**Backend Abstraction:**
+```python
+class ModelBackend(ABC):
+    def list_models(self) -> List[str]
+    def generate(self, prompt: str, model_id: str) -> str
+    def check_availability(self, model_id: str) -> bool
+
+class OllamaBackend(ModelBackend): ...
+class HuggingFaceBackend(ModelBackend): ...  # Phase 2
+```
+
+**Files to Update:**
+- `src/core/multi_model_system.py` - use config instead of hardcoded
+- `src/ui/ui_components.py` - model dropdown from config
+- `src/ui/project_meta_ui.py` - model references
+- `src/ui/system_monitor.py` - model status display
+- `main.py` - add Model Setup tab
+
+---
+
 ## Future Roadmap
 
 ### IDE Integration (Waiting)
