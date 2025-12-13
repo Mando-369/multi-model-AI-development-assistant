@@ -1,12 +1,13 @@
 # Local AI Coding Assistant
 
 ## Tech Stack
-- **DeepSeek-R1:32B** - Deep reasoning, planning, architecture decisions
-- **Qwen2.5:32B** - Fast summarization, titles, quick tasks
+- **Ollama** - Local model backend (configurable models via Model Setup tab)
+- **Reasoning Model** - Deep reasoning, planning, architecture (default: deepseek-r1:32b)
+- **Fast Model** - Summarization, titles, quick tasks (default: qwen2.5:32b)
 - **ChromaDB** - Knowledge base with FAUST/JUCE documentation
 - **Streamlit** - Web interface
 
-## Architecture (v2.1)
+## Architecture (v2.2)
 
 ### Project Meta System
 Strategic planning with PROJECT_META.md per project:
@@ -36,9 +37,13 @@ All agents see: `Agent Prompt → PROJECT_META.md → Agent Meta → Last Exchan
 
 ## Key Files
 - `main.py` - Streamlit entry point
+- `model_config.json` - Model role configuration (Reasoning/Fast)
 - `src/core/multi_model_system.py` - Model orchestration & context injection
+- `src/core/model_backends.py` - Backend abstraction (Ollama, HuggingFace stub)
+- `src/core/model_config.py` - Model configuration manager
 - `src/core/project_meta_manager.py` - PROJECT_META.md operations
 - `src/core/prompts.py` - System prompts & agent modes
+- `src/ui/model_setup_ui.py` - Model Setup tab
 - `src/ui/project_meta_ui.py` - Project Meta tab
 - `src/ui/ui_components.py` - UI components
 
