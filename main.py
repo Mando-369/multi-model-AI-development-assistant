@@ -1,4 +1,5 @@
 import streamlit as st
+import urllib.parse
 from pathlib import Path
 from src.core import MultiModelGLMSystem
 from src.ui import (
@@ -13,6 +14,7 @@ from src.ui import (
 )
 from src.ui.project_meta_ui import render_project_meta_tab
 from src.ui.model_setup_ui import render_model_setup_tab
+from src.ui.theme import inject_global_styles
 
 
 def main():
@@ -22,57 +24,8 @@ def main():
         initial_sidebar_state="expanded",
     )
 
-    # Custom CSS for better tab visibility
-    st.markdown("""
-    <style>
-    /* Tab styling - bigger fonts and better contrast */
-    .stTabs [data-baseweb="tab-list"] {
-        background-color: #313244;
-        padding: 10px 15px;
-        border-radius: 10px;
-        gap: 8px;
-    }
-
-    .stTabs [data-baseweb="tab"] {
-        font-size: 18px !important;
-        font-weight: 600 !important;
-        padding: 12px 24px !important;
-        background-color: #45475a;
-        border-radius: 8px;
-        color: #cdd6f4 !important;
-    }
-
-    .stTabs [data-baseweb="tab"]:hover {
-        background-color: #585b70;
-        color: #ffffff !important;
-    }
-
-    .stTabs [aria-selected="true"] {
-        background-color: #89b4fa !important;
-        color: #1e1e2e !important;
-    }
-
-    /* Main title styling */
-    h1 {
-        font-size: 2.5rem !important;
-        color: #89b4fa !important;
-        padding-bottom: 10px;
-        border-bottom: 2px solid #45475a;
-        margin-bottom: 20px !important;
-    }
-
-    /* Section headers */
-    h2 {
-        font-size: 1.8rem !important;
-        color: #cdd6f4 !important;
-    }
-
-    h3 {
-        font-size: 1.4rem !important;
-        color: #bac2de !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    # Inject consolidated global styles
+    inject_global_styles()
 
     st.title("Multi-Model AI Development Assistant")
 
@@ -141,28 +94,7 @@ def main():
                     st.query_params["tab"] = tab_key
                     st.rerun()
 
-    # CSS for inactive tab buttons
-    st.markdown("""
-    <style>
-    /* Style inactive tab buttons (blue) */
-    div[data-testid="stButton"] > button {
-        background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%) !important;
-        border: 2px solid #89b4fa !important;
-        color: #cdd6f4 !important;
-        font-weight: 600 !important;
-        padding: 12px 8px !important;
-        border-radius: 8px !important;
-        box-shadow: 0 2px 8px rgba(137, 180, 250, 0.3) !important;
-        transition: all 0.2s ease !important;
-    }
-    div[data-testid="stButton"] > button:hover {
-        background: linear-gradient(135deg, #2d5a87 0%, #3d7ab7 100%) !important;
-        border-color: #b4befe !important;
-        transform: translateY(-2px) !important;
-        box-shadow: 0 4px 12px rgba(137, 180, 250, 0.4) !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    # Tab button styling is handled by theme.py
 
     selected_tab = st.session_state.active_tab
 
@@ -258,6 +190,14 @@ def render_code_editor_tab(selected_project: str):
     else:
         base_project_path = str(Path("./projects") / selected_project)
 
+    # Restore browse folder from URL if not in session state
+    if "current_browse_folder" not in st.session_state:
+        browse_folder_url = st.query_params.get("browse", "")
+        if browse_folder_url:
+            browse_folder = urllib.parse.unquote(browse_folder_url)
+            if Path(browse_folder).exists() and Path(browse_folder).is_dir():
+                st.session_state.current_browse_folder = browse_folder
+
     if "current_browse_folder" in st.session_state:
         project_path = st.session_state.current_browse_folder
     else:
@@ -277,6 +217,9 @@ def render_code_editor_tab(selected_project: str):
                     del st.session_state.current_browse_folder
                     if "show_folder_picker" in st.session_state:
                         del st.session_state.show_folder_picker
+                    # Clear browse param from URL
+                    if "browse" in st.query_params:
+                        del st.query_params["browse"]
                     st.rerun()
             else:
                 if selected_project == "Default":
@@ -314,6 +257,8 @@ def render_code_editor_tab(selected_project: str):
                 elif selected_folder and selected_folder != project_path:
                     st.session_state.current_browse_folder = selected_folder
                     st.session_state.show_folder_picker = False
+                    # Save browse folder to URL for persistence across reloads
+                    st.query_params["browse"] = selected_folder
                     st.rerun()
 
             # File filtering controls

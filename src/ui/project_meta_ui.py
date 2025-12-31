@@ -201,7 +201,7 @@ def render_orchestrator_chat(glm_system, project_name: str):
     # Chat input
     question = st.text_area(
         "Ask Orchestrator:",
-        placeholder="Examples:\n- Mark filter design as complete\n- Add new milestone for GUI\n- Update the roadmap\n- What's blocking progress?",
+        placeholder="Examples: Mark filter design as complete, Add new milestone for GUI, Update the roadmap...",
         height=350,
         key=f"orchestrator_input_{project_name}"
     )

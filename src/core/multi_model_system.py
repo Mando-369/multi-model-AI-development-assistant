@@ -651,3 +651,93 @@ Reference the knowledge base information when relevant."""
                     available.append(model_name)
 
         return available
+
+    def analyze_faust_in_response(self, response_text: str) -> Optional[Dict]:
+        """
+        Detect FAUST code in response and analyze it via faust-mcp.
+
+        Args:
+            response_text: The response text potentially containing FAUST code
+
+        Returns:
+            Analysis result dict if FAUST code was found and analyzed, None otherwise.
+        """
+        try:
+            from .faust_mcp_client import analyze_faust_code, check_faust_server
+
+            # Check if server is available
+            if not check_faust_server():
+                print("ℹ️ faust-mcp server not running - skipping analysis")
+                return None
+
+            # Find FAUST code blocks - look for code with stdfaust.lib import and process definition
+            faust_pattern = r'```(?:faust|dsp)?\s*\n(.*?import\s*\(\s*["\']stdfaust\.lib["\']\s*\).*?process\s*=.*?)```'
+            matches = re.findall(faust_pattern, response_text, re.DOTALL | re.IGNORECASE)
+
+            if not matches:
+                # Try alternative pattern without code fence
+                alt_pattern = r'(import\s*\(\s*["\']stdfaust\.lib["\']\s*\);.*?process\s*=.*?;)'
+                matches = re.findall(alt_pattern, response_text, re.DOTALL | re.IGNORECASE)
+
+            if not matches:
+                return None
+
+            # Analyze the first/main FAUST code block
+            faust_code = matches[0].strip()
+            print(f"🎛️ Detected FAUST code, analyzing via faust-mcp...")
+
+            result = analyze_faust_code(faust_code)
+
+            return {
+                "status": result.status,
+                "max_amplitude": result.max_amplitude,
+                "rms": result.rms,
+                "is_silent": result.is_silent,
+                "waveform": result.waveform_ascii,
+                "num_outputs": result.num_outputs,
+                "channels": result.channels,
+                "features": result.features,
+                "error": result.error,
+                "summary": result.get_summary(),
+            }
+
+        except ImportError:
+            print("⚠️ faust_mcp_client not available")
+            return None
+        except Exception as e:
+            print(f"❌ Error analyzing FAUST code: {e}")
+            return None
+
+    def check_faust_server_status(self) -> Dict:
+        """Check if faust-mcp server is running and get backend info."""
+        try:
+            from .faust_mcp_client import (
+                check_faust_server,
+                detect_faust_backend,
+                get_faust_version,
+            )
+
+            server_running = check_faust_server()
+            backend = detect_faust_backend()
+            faust_version = get_faust_version()
+
+            return {
+                "server_running": server_running,
+                "backend": backend,
+                "faust_version": faust_version,
+                "status": "✅ Ready" if server_running else "⚠️ Server not running",
+                "message": (
+                    f"faust-mcp server running ({backend} backend)"
+                    if server_running
+                    else f"Start server with: python tools/faust-mcp/faust_server.py"
+                ),
+            }
+
+        except ImportError:
+            return {
+                "server_running": False,
+                "backend": "none",
+                "faust_version": None,
+                "status": "❌ Not installed",
+                "message": "faust_mcp_client module not available",
+            }

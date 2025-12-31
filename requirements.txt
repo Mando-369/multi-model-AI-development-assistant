@@ -32,6 +32,11 @@ pathlib>=1.0.1
 requests>=2.31.0
 watchdog>=6.0.0
 
+# faust-mcp integration (FAUST DSP analysis)
+httpx>=0.25.0
+anyio>=4.0.0
+mcp>=0.1.0
+
 # Optional: Enhanced OCR support
 # Uncomment if you want better OCR performance
 easyocr>=1.7.0
@@ -48,3 +53,9 @@ easyocr>=1.7.0
 # ollama pull deepseek-r1:32b    # Reasoning, planning, architecture
 # ollama pull qwen2.5:32b        # Summarization, titles, fast tasks
 # ollama pull nomic-embed-text   # Embeddings for knowledge base
+#
+# Optional: DawDreamer for faust-mcp (if Faust compiler not installed)
+# pip install dawDreamer
+#
+# faust-mcp setup:
+# cd tools/faust-mcp && pip install -r requirements.txt

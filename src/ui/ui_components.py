@@ -344,51 +344,8 @@ def display_response_with_thinking(answer: str, selected_model: str):
 
 def render_project_management(glm_system):
     """Render project management section with file handling"""
-    # Add styling for better visibility
-    st.markdown(
-        """
-    <style>
-    .project-management {
-        background: linear-gradient(135deg, #313244 0%, #1e1e2e 100%);
-        padding: 20px 25px;
-        border-radius: 12px;
-        border: 2px solid #a6e3a1;
-        margin-bottom: 25px;
-        box-shadow: 0 4px 15px rgba(166, 227, 161, 0.15);
-    }
-    .project-management h3 {
-        color: #a6e3a1 !important;
-        font-size: 1.4rem !important;
-        margin-bottom: 15px !important;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #45475a;
-    }
-    /* Style selectbox and inputs in project section */
-    .project-management .stSelectbox label,
-    .project-management .stTextInput label {
-        color: #cdd6f4 !important;
-        font-weight: 600 !important;
-        font-size: 1rem !important;
-    }
-    .project-management .stSelectbox > div > div,
-    .project-management .stTextInput > div > div > input {
-        background-color: #45475a !important;
-        border: 1px solid #585b70 !important;
-        color: #cdd6f4 !important;
-    }
-    .project-management .stButton > button {
-        background-color: #a6e3a1 !important;
-        color: #1e1e2e !important;
-        font-weight: 600 !important;
-        border: none !important;
-    }
-    .project-management .stButton > button:hover {
-        background-color: #94e2d5 !important;
-    }
-    </style>
-    """,
-        unsafe_allow_html=True,
-    )
+    from src.ui.theme import get_project_management_css
+    st.markdown(get_project_management_css(), unsafe_allow_html=True)
 
     with st.container():
         st.markdown('<div class="project-management">', unsafe_allow_html=True)
@@ -408,8 +365,11 @@ def render_project_management(glm_system):
 
         if "current_project" not in st.session_state:
             # Check URL query params for persisted project
+            import urllib.parse
             query_params = st.query_params
-            url_project = query_params.get("project", "Default")
+            url_project_raw = query_params.get("project", "Default")
+            # URL decode the project name (+ becomes space, %20 becomes space, etc.)
+            url_project = urllib.parse.unquote_plus(url_project_raw)
             if url_project in available_projects:
                 st.session_state.current_project = url_project
             else:
@@ -584,6 +544,8 @@ def save_all_and_close_files():
 
     # Clear all open files
     st.session_state.editor_open_files = {}
+    # Clear file from URL
+    _clear_file_from_url()
 
     # Clear confirmation states
     keys_to_clear = []
@@ -599,10 +561,20 @@ def save_all_and_close_files():
             pass  # Key might have been deleted already
 
 
+def _clear_file_from_url():
+    """Clear the file param from URL."""
+    try:
+        if "file" in st.query_params:
+            del st.query_params["file"]
+    except Exception:
+        pass
+
+
 def close_all_files():
     """Close all open files without saving"""
     # Clear all open files
     st.session_state.editor_open_files = {}
+    _clear_file_from_url()
 
     # Clear all editor-related session state
     keys_to_clear = []
@@ -624,33 +596,8 @@ def close_all_files():
 # Keep all other functions the same...
 def render_model_selection(glm_system):
     """Render model and agent mode selection"""
-    st.markdown(
-        """
-    <style>
-    .model-selection {
-        background: linear-gradient(135deg, #313244 0%, #1e1e2e 100%);
-        padding: 20px 25px;
-        border-radius: 12px;
-        border: 2px solid #fab387;
-        margin-bottom: 25px;
-        box-shadow: 0 4px 15px rgba(250, 179, 135, 0.15);
-    }
-    .model-selection h3 {
-        color: #fab387 !important;
-        font-size: 1.4rem !important;
-        margin-bottom: 15px !important;
-    }
-    .agent-mode-info {
-        background-color: #45475a;
-        padding: 10px;
-        border-radius: 8px;
-        margin-top: 10px;
-        border-left: 3px solid #fab387;
-    }
-    </style>
-    """,
-        unsafe_allow_html=True,
-    )
+    from src.ui.theme import get_model_selection_css
+    st.markdown(get_model_selection_css(), unsafe_allow_html=True)
 
     with st.container():
         st.markdown('<div class="model-selection">', unsafe_allow_html=True)
@@ -1005,43 +952,8 @@ def render_chat_input(
     glm_system, selected_model, use_context, selected_project, chat_key, selected_agent="General"
 ):
     """Render chat input section with specialist agent mode"""
-    # Add styling for the input section
-    st.markdown(
-        """
-    <style>
-    .chat-input-section {
-        background: linear-gradient(135deg, #313244 0%, #1e1e2e 100%);
-        padding: 20px 25px;
-        border-radius: 12px;
-        border: 2px solid #89b4fa;
-        margin-bottom: 30px;
-        box-shadow: 0 4px 15px rgba(137, 180, 250, 0.15);
-    }
-    .chat-input-section h3 {
-        color: #89b4fa !important;
-        font-size: 1.4rem !important;
-        margin-bottom: 15px !important;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #45475a;
-    }
-    .chat-input-section .stTextArea label {
-        color: #cdd6f4 !important;
-        font-weight: 600 !important;
-    }
-    .chat-input-section .stButton > button {
-        background-color: #89b4fa !important;
-        color: #1e1e2e !important;
-        font-weight: 600 !important;
-        font-size: 1.1rem !important;
-        padding: 10px 25px !important;
-    }
-    .chat-input-section .stButton > button:hover {
-        background-color: #b4befe !important;
-    }
-    </style>
-    """,
-        unsafe_allow_html=True,
-    )
+    from src.ui.theme import get_chat_input_css
+    st.markdown(get_chat_input_css(), unsafe_allow_html=True)
 
     with st.container():
         st.markdown('<div class="chat-input-section">', unsafe_allow_html=True)
@@ -1147,7 +1059,7 @@ def render_chat_input(
             if st.session_state.get(attached_content_key):
                 with st.expander("Preview attached content", expanded=False):
                     # Full content in scrollable container (auto-detect syntax)
-                    with st.container(height=800):
+                    with st.container(height=400):
                         st.code(st.session_state[attached_content_key])
 
         # Handle clear input flag
@@ -1161,17 +1073,10 @@ def render_chat_input(
         question = st.text_area(
             "Type your question or request:",
             value=default_value,
-            placeholder="""Examples:
-        - Create a reverb effect in FAUST
-        - Explain the uploaded C++ code
-        - Design a low-pass filter
-        - Help me debug this Python script
-        - Continue our discussion about [previous topic]
-
-        Press Enter for new lines, use the Send button when ready.""",
+            placeholder="Examples: Create a reverb in FAUST, Explain this C++ code, Design a low-pass filter...",
             key="main_chat_input",
             height=350,
-            help="Multi-line input supported - great for code snippets and detailed questions!",
+            help="Multi-line input supported. Press Enter for new lines, use the Send button when ready.",
         )
 
         col1, col2, col3 = st.columns(3)
@@ -1294,61 +1199,9 @@ def render_agent_context(glm_system, project_name: str, agent_mode: str):
 
     agent_meta = glm_system.read_agent_meta(project_name, agent_mode)
 
-    # Add styling for the agent context box (blue/purple theme to distinguish from green project box)
-    st.markdown(
-        """
-    <style>
-    .agent-context {
-        background: linear-gradient(135deg, #313244 0%, #1e1e2e 100%);
-        padding: 20px 25px;
-        border-radius: 12px;
-        border: 2px solid #89b4fa;
-        margin-bottom: 25px;
-        box-shadow: 0 4px 15px rgba(137, 180, 250, 0.15);
-    }
-    .agent-context h3 {
-        color: #89b4fa !important;
-        font-size: 1.4rem !important;
-        margin-bottom: 15px !important;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #45475a;
-    }
-    .agent-context .stTextArea label {
-        color: #cdd6f4 !important;
-        font-weight: 600 !important;
-    }
-    .agent-context .stTextArea textarea {
-        background-color: #45475a !important;
-        border: 1px solid #585b70 !important;
-        color: #cdd6f4 !important;
-        font-family: monospace !important;
-    }
-    .agent-context .stButton > button {
-        background-color: #89b4fa !important;
-        color: #1e1e2e !important;
-        font-weight: 600 !important;
-        border: none !important;
-    }
-    .agent-context .stButton > button:hover {
-        background-color: #b4befe !important;
-    }
-    .agent-context .stMarkdown {
-        color: #cdd6f4 !important;
-    }
-    .agent-context-content {
-        background-color: #45475a;
-        padding: 15px;
-        border-radius: 8px;
-        margin: 10px 0;
-        font-family: monospace;
-        white-space: pre-wrap;
-        max-height: 400px;
-        overflow-y: auto;
-    }
-    </style>
-    """,
-        unsafe_allow_html=True,
-    )
+    # Use consolidated theme CSS
+    from src.ui.theme import get_agent_context_css
+    st.markdown(get_agent_context_css(), unsafe_allow_html=True)
 
     # Unique key for this agent's editor state
     editing_key = f"meta_editing_{project_name}_{agent_mode}"
@@ -1519,12 +1372,19 @@ def render_recent_conversations(chat_history, selected_model):
                 # Answer section - use helper to show R1 thinking if present
                 display_response_with_thinking(answer, selected_model)
 
-                # Export buttons section
+                # Options section
                 st.markdown("---")
-                st.markdown("**📤 Export Options:**")
-                col1, col2, col3 = st.columns(3)
+                st.markdown("**⚡ Options:**")
 
                 msg_id = len(recent_chats) - i + 1
+
+                # Check for FAUST content
+                has_faust = _detect_faust_code_in_text(answer)
+
+                if has_faust:
+                    col1, col2, col3, col4 = st.columns(4)
+                else:
+                    col1, col2, col3 = st.columns(3)
 
                 with col1:
                     if st.button("📋 Copy Response", key=f"copy_{msg_id}"):
@@ -1584,24 +1444,33 @@ Please implement the above approach."""
                         st.code(formatted, language="markdown")
                         st.info("Copy above and paste into Claude Code")
 
-                # Add metadata footer
+                # FAUST Analyze button in col4 (only if has_faust)
+                if has_faust:
+                    with col4:
+                        analyze_key = f"show_faust_analysis_{msg_id}"
+                        if st.button("🎛️ Analyze FAUST", key=f"faust_{msg_id}"):
+                            st.session_state[analyze_key] = True
+
+                # Metadata footer
                 st.markdown("---")
-                col1, col2, col3 = st.columns(3)
-                with col1:
+                fcol1, fcol2, fcol3 = st.columns(3)
+
+                with fcol1:
                     st.caption(f"📝 Q: {len(question)} chars")
-                with col2:
+                with fcol2:
                     st.caption(f"📋 A: {len(answer)} chars")
-                with col3:
-                    # Detect content type
+                with fcol3:
                     if "```" in answer:
                         st.caption("💻 Contains Code")
-                    elif any(
-                        keyword in answer.lower()
-                        for keyword in ["faust", "dsp", "audio"]
-                    ):
+                    elif any(keyword in answer.lower() for keyword in ["faust", "dsp", "audio"]):
                         st.caption("🎵 Audio/DSP")
                     else:
                         st.caption("💬 Text")
+
+                # Show FAUST analysis results if triggered
+                if has_faust and st.session_state.get(f"show_faust_analysis_{msg_id}", False):
+                    _analyze_faust_in_response(answer, msg_id)
+                    st.session_state[f"show_faust_analysis_{msg_id}"] = False
 
             # Add spacing between exchanges
             if i < len(recent_chats):
@@ -1661,4 +1530,249 @@ def render_full_chat_history(chat_history, selected_model):
                 if i < 10 and i < total_messages:  # Don't add divider after last item
                     st.write("---")
 
+
+def _detect_faust_code_in_text(text: str) -> bool:
+    """Detect if text contains FAUST code or FAUST-related content."""
+    import re
+    text_lower = text.lower()
+
+    # Quick keyword check first (faster)
+    faust_keywords = [
+        'stdfaust.lib', 'process =', 'process=',
+        'import("', "import('", 'declare ',
+        'os.osc', 'fi.lowpass', 'fi.highpass', 'fi.bandpass',
+        'de.delay', 're.freeverb', 'en.adsr',
+        '.dsp', 'faust code', 'faust dsp',
+    ]
+    for keyword in faust_keywords:
+        if keyword in text_lower:
+            return True
+
+    # Regex patterns for more complex matching
+    faust_patterns = [
+        r'import\s*\(\s*["\'].*\.lib["\']\s*\)',  # import("*.lib")
+        r'process\s*=\s*',  # process = ...
+        r'\b[a-z]{2}\.[a-z]+\s*\(',  # os.osc(, fi.lowpass(, etc.
+        r'```\s*(?:faust|dsp)',  # code block with faust/dsp language
+    ]
+    for pattern in faust_patterns:
+        if re.search(pattern, text, re.IGNORECASE):
+            return True
+
+    return False
+
+
+def _extract_faust_code(text: str) -> str:
+    """Extract FAUST code from text (looks for code blocks or raw FAUST)."""
+    import re
+
+    # Try to find explicitly labeled FAUST/DSP code blocks first
+    faust_block_pattern = r'```(?:faust|dsp)\s*\n(.*?)```'
+    matches = re.findall(faust_block_pattern, text, re.DOTALL | re.IGNORECASE)
+    if matches:
+        return matches[0].strip()
+
+    # Try any code block that contains FAUST patterns
+    any_block_pattern = r'```\w*\s*\n(.*?)```'
+    blocks = re.findall(any_block_pattern, text, re.DOTALL)
+    for block in blocks:
+        if 'import(' in block and 'process' in block:
+            return block.strip()
+        if 'stdfaust.lib' in block:
+            return block.strip()
+
+    # Try to find code with stdfaust.lib import (not in code block)
+    import_pattern = r'(import\s*\(\s*["\']stdfaust\.lib["\']\s*\)[\s\S]*?process\s*=[\s\S]*?;)'
+    matches = re.findall(import_pattern, text, re.IGNORECASE)
+    if matches:
+        return matches[0].strip()
+
+    # Last resort: look for process = ... pattern
+    process_pattern = r'((?:import\s*\([^)]+\)\s*;\s*)*process\s*=\s*[^;]+;)'
+    matches = re.findall(process_pattern, text, re.IGNORECASE)
+    if matches:
+        # Add stdfaust.lib import if missing
+        code = matches[0].strip()
+        if 'import(' not in code:
+            code = 'import("stdfaust.lib");\n' + code
+        return code
+
+    return ""
+
+
+def _analyze_faust_in_response(response_text: str, msg_id: int):
+    """Analyze FAUST code found in a chat response."""
+    from src.core.faust_mcp_client import analyze_faust_code, check_faust_server
+
+    faust_code = _extract_faust_code(response_text)
+
+    if not faust_code:
+        st.warning("Could not extract FAUST code from response")
+        return
+
+    if not check_faust_server():
+        st.error("🎛️ faust-mcp server is not running")
+        st.info("Start it with: `./start_assistant.sh`")
+        return
+
+    with st.spinner("🎛️ Compiling and analyzing FAUST code..."):
+        try:
+            result = analyze_faust_code(faust_code)
+            analysis_dict = {
+                "status": result.status,
+                "max_amplitude": result.max_amplitude,
+                "rms": result.rms,
+                "is_silent": result.is_silent,
+                "waveform": result.waveform_ascii,
+                "num_outputs": result.num_outputs,
+                "channels": result.channels,
+                "features": result.features,
+                "error": result.error,
+            }
+            render_faust_analysis(analysis_dict)
+        except Exception as e:
+            st.error(f"Analysis failed: {e}")
+
+
+def render_faust_analysis(analysis: dict):
+    """
+    Render FAUST analysis results from faust-mcp in the UI.
+
+    Args:
+        analysis: Dictionary containing analysis results from faust-mcp
+    """
+    if not analysis:
+        return
+
+    if analysis.get("status") == "error":
+        st.error(f"🎛️ FAUST Analysis Error: {analysis.get('error', 'Unknown error')}")
+        return
+
+    # Use container for full width
+    st.markdown("---")
+    st.subheader("🎛️ FAUST Analysis Results")
+
+    # Status row
+    status_text = "✅ Compiled successfully" if analysis.get("status") == "success" else f"⚠️ {analysis.get('status')}"
+    st.markdown(f"**Status:** {status_text}")
+
+    # Metrics columns - use full width
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        max_amp = analysis.get("max_amplitude", 0)
+        amp_color = "🔴" if max_amp > 0.95 else "🟢" if max_amp > 0.1 else "⚪"
+        st.metric("Max Amplitude", f"{max_amp:.4f}", delta=amp_color)
+
+    with col2:
+        rms = analysis.get("rms", 0)
+        st.metric("RMS Level", f"{rms:.4f}")
+
+    with col3:
+        num_outputs = analysis.get("num_outputs", 0)
+        st.metric("Channels", str(num_outputs))
+
+    with col4:
+        is_silent = analysis.get("is_silent", True)
+        silent_text = "🔇 Silent" if is_silent else "🔊 Audio"
+        st.metric("Output", silent_text)
+
+    # Warnings
+    if analysis.get("is_silent"):
+        st.warning("⚠️ Output is silent - check your signal flow")
+    if analysis.get("max_amplitude", 0) > 0.99:
+        st.warning("⚠️ Possible clipping detected - consider adding a limiter")
+
+    # Waveform visualization
+    waveform = analysis.get("waveform", "")
+    if waveform:
+        st.markdown("**Waveform Preview:**")
+        st.code(waveform, language=None)
+
+    # Spectral features
+    features = analysis.get("features", {})
+    if features and features.get("spectral_available"):
+        st.markdown("**Spectral Features:**")
+        feat_cols = st.columns(5)
+
+        with feat_cols[0]:
+            centroid = features.get("spectral_centroid", 0)
+            st.metric("Centroid", f"{centroid:.0f} Hz")
+
+        with feat_cols[1]:
+            bandwidth = features.get("spectral_bandwidth", 0)
+            st.metric("Bandwidth", f"{bandwidth:.0f} Hz")
+
+        with feat_cols[2]:
+            rolloff = features.get("spectral_rolloff", 0)
+            st.metric("Rolloff", f"{rolloff:.0f} Hz")
+
+        with feat_cols[3]:
+            flatness = features.get("spectral_flatness", 0)
+            st.metric("Flatness", f"{flatness:.4f}")
+
+        with feat_cols[4]:
+            crest = features.get("crest_factor", 0)
+            st.metric("Crest Factor", f"{crest:.2f}")
+
+    # Time-domain features
+    if features:
+        dc_offset = features.get("dc_offset", 0)
+        zcr = features.get("zero_crossing_rate", 0)
+        clipping = features.get("clipping_ratio", 0)
+
+        if abs(dc_offset) > 0.01 or clipping > 0:
+            st.markdown("**Additional Metrics:**")
+            add_cols = st.columns(3)
+
+            with add_cols[0]:
+                if abs(dc_offset) > 0.01:
+                    st.metric("DC Offset", f"{dc_offset:.6f}")
+                    st.caption("⚠️ Consider adding DC blocking filter")
+
+            with add_cols[1]:
+                st.metric("Zero Crossing Rate", f"{zcr:.4f}")
+
+            with add_cols[2]:
+                if clipping > 0:
+                    st.metric("Clipping Ratio", f"{clipping:.2%}")
+                    st.caption("⚠️ Audio is clipping")
+
+    # Per-channel details (collapsible)
+    channels = analysis.get("channels", [])
+    if channels and len(channels) > 1:
+        with st.expander("Per-Channel Details", expanded=False):
+            for ch in channels:
+                idx = ch.get("index", 0)
+                ch_max = ch.get("max_amplitude", 0)
+                ch_rms = ch.get("rms", 0)
+                ch_wf = ch.get("waveform_ascii", "")
+
+                st.markdown(f"**Channel {idx + 1}:** Max: {ch_max:.4f} | RMS: {ch_rms:.4f}")
+                if ch_wf:
+                    st.code(ch_wf, language=None)
+
+
+def render_faust_server_status(glm_system):
+    """Render faust-mcp server status in the UI."""
+    try:
+        status = glm_system.check_faust_server_status()
+
+        with st.expander("🎛️ FAUST Analysis Server", expanded=False):
+            col1, col2 = st.columns([1, 2])
+
+            with col1:
+                st.markdown(f"**Status:** {status.get('status', 'Unknown')}")
+                if status.get("faust_version"):
+                    st.caption(status.get("faust_version"))
+
+            with col2:
+                st.markdown(f"**Backend:** {status.get('backend', 'none')}")
+                st.caption(status.get("message", ""))
+
+            if not status.get("server_running"):
+                st.info("💡 Start the server to enable FAUST code analysis")
+
+    except Exception as e:
+        st.warning(f"Could not check FAUST server status: {e}")
 

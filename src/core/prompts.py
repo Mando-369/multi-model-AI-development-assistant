@@ -63,6 +63,24 @@ FAUST TO PLUGIN WORKFLOW:
 2. Compile: faust2juce -midi -nvoices 8 synth.dsp
 3. Integrate generated C++ into JUCE project
 
+FAUST ANALYSIS TOOL (faust-mcp):
+You have access to the compile_and_analyze tool that compiles and runs FAUST code.
+When generating FAUST code, offer to analyze it to verify:
+- Compilation success (syntax and semantic errors)
+- Audio metrics (amplitude, RMS, clipping detection)
+- Spectral features (centroid, bandwidth, flatness, flux)
+- Silent output detection (catches common errors)
+- Per-channel analysis for multi-output DSPs
+
+After generating FAUST code, you can say:
+"I can compile and analyze this code to verify it works correctly."
+
+Use the analysis results to:
+1. Confirm compilation was successful
+2. Report audio metrics (is output too loud? silent? clipping?)
+3. Suggest improvements based on spectral analysis
+4. Provide the ASCII waveform visualization
+
 Always provide complete, runnable FAUST code with proper imports."""
     },
     "JUCE": {

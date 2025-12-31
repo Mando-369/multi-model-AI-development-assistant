@@ -5,6 +5,7 @@ from typing import Dict, List, Optional
 import difflib
 import re
 import hashlib
+import urllib.parse
 from src.core.prompts import AGENT_MODES
 
 
@@ -16,6 +17,59 @@ class EditorUI:
         # Initialize open_files in session state if not present
         if "editor_open_files" not in st.session_state:
             st.session_state.editor_open_files = {}
+
+        # Restore from URL query params on first load (check flag in session state)
+        if "editor_url_restored" not in st.session_state:
+            st.session_state.editor_url_restored = True
+            self._restore_from_url()
+
+    def _restore_from_url(self):
+        """Restore open files from URL query params."""
+        try:
+            file_param = st.query_params.get("file", "")
+
+            if file_param:
+                # Decode URL-encoded path
+                file_path = urllib.parse.unquote(file_param)
+                # Normalize path
+                file_path = str(Path(file_path))
+                path = Path(file_path)
+
+                if path.exists() and path.is_file():
+                    if file_path not in st.session_state.editor_open_files:
+                        try:
+                            content = path.read_text(encoding="utf-8", errors="replace")
+                            st.session_state.editor_open_files[file_path] = {
+                                "original_content": content,
+                                "current_content": content,
+                                "language": self.get_language_from_extension(file_path),
+                                "has_unsaved_changes": False,
+                                "has_ai_suggestions": False,
+                                "ai_suggested_content": None,
+                                "is_binary": False,
+                            }
+                            st.toast(f"Restored: {path.name}", icon="📂")
+                        except Exception as e:
+                            st.warning(f"Could not restore file: {e}")
+                else:
+                    st.warning(f"File not found: {file_path}")
+        except Exception as e:
+            print(f"Error restoring from URL: {e}")
+
+    def _save_to_url(self):
+        """Save current open file to URL query params."""
+        try:
+            open_files = list(st.session_state.get("editor_open_files", {}).keys())
+            if open_files:
+                # Save the first/active file to URL (normalize path)
+                file_path = str(Path(open_files[0]))
+                st.query_params["file"] = file_path
+            else:
+                # Clear file param if no files open
+                if "file" in st.query_params:
+                    del st.query_params["file"]
+        except Exception as e:
+            print(f"Error saving to URL: {e}")
 
     def get_language_from_extension(self, file_path: str) -> str:
         """Get ACE editor language mode from file extension"""
@@ -52,8 +106,8 @@ class EditorUI:
             ".bash": "sh",
             ".ps1": "powershell",
             ".bat": "batchfile",
-            ".dsp": "c_cpp",  # FAUST files - use C++ as closest syntax (has similar operators)
-            ".fst": "c_cpp", 
+            ".dsp": "c_cpp",  # FAUST files - C++ mode for best available highlighting
+            ".fst": "c_cpp",
             ".lib": "c_cpp",
             ".txt": "text",
             ".log": "text",
@@ -115,6 +169,8 @@ class EditorUI:
                     "language": self.get_language_from_extension(file_path),
                     "is_binary": file_content.get("is_binary", False),
                 }
+                # Persist open files list
+                self._save_to_url()
 
         file_data = st.session_state.editor_open_files[file_path]
 
@@ -175,64 +231,9 @@ class EditorUI:
 
         # Add FAUST-specific styling when editing FAUST files
         if Path(file_path).suffix.lower() in [".dsp", ".fst", ".lib"]:
-            st.markdown("""
-            <style>
-            /* FAUST syntax highlighting - Monaco Editor vs-dark theme inspired */
-            .ace_editor {
-                font-family: 'Consolas', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
-                background-color: #1e1e1e !important;
-            }
-            /* Comments - green like in Monaco */
-            .ace_editor .ace_comment {
-                color: #6A9955 !important;
-                font-style: italic !important;
-            }
-            /* Strings - reddish/orange like Monaco */
-            .ace_editor .ace_string {
-                color: #CE9178 !important;
-            }
-            /* Numbers - light green like Monaco */
-            .ace_editor .ace_constant.ace_numeric {
-                color: #B5CEA8 !important;
-            }
-            /* Keywords - blue like Monaco (import, declare, process, with, etc.) */
-            .ace_editor .ace_keyword {
-                color: #569CD6 !important;
-                font-weight: bold !important;
-            }
-            /* Identifiers and variables - light gray */
-            .ace_editor .ace_identifier {
-                color: #D4D4D4 !important;
-            }
-            /* Functions - yellow like Monaco */
-            .ace_editor .ace_support.ace_function {
-                color: #DCDCAA !important;
-            }
-            /* Function names and method calls */
-            .ace_editor .ace_entity.ace_name.ace_function {
-                color: #DCDCAA !important;
-            }
-            /* Parentheses and brackets */
-            .ace_editor .ace_paren {
-                color: #D4D4D4 !important;
-            }
-            /* Operators and punctuation - light gray */
-            .ace_editor .ace_punctuation.ace_operator {
-                color: #D4D4D4 !important;
-            }
-            /* Types and classes - light blue/teal */
-            .ace_editor .ace_support.ace_type {
-                color: #4EC9B0 !important;
-            }
-            /* Constants and built-ins */
-            .ace_editor .ace_support.ace_constant {
-                color: #4FC1FF !important;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-            
-            # Add informational note about FAUST highlighting
-            st.info("🎵 **FAUST file detected** - Using Monaco Editor-inspired color scheme with C++ syntax highlighting for optimal FAUST code readability.")
+            from src.ui.theme import get_faust_editor_css
+            st.markdown(get_faust_editor_css(), unsafe_allow_html=True)
+            st.info("🎵 **FAUST file** - Monaco-inspired syntax highlighting")
 
         # Store the content in a separate session state key for the editor
         editor_value_key = f"editor_value_{file_hash}"
@@ -249,8 +250,8 @@ class EditorUI:
                 language=file_data.get("language", "text"),
                 theme=self.get_editor_theme(),
                 key=editor_key,
-                height=1400,
-                font_size=14,
+                height=1200,
+                font_size=12,
                 tab_size=4,
                 wrap=False,
                 auto_update=False,  # Important: set to False
@@ -278,7 +279,7 @@ class EditorUI:
             editor_content = st.text_area(
                 "Edit File (Fallback Mode)",
                 value=content_to_display,
-                height=1400,
+                height=1200,
                 key=f"fallback_{editor_key}",
             )
 
@@ -313,13 +314,7 @@ class EditorUI:
             ai_prompt = st.text_area(
                 "What would you like the AI to do with this file?",
                 value=st.session_state[prompt_key],
-                placeholder="""Examples:
-                    • Add comments to explain the code
-                    • Optimize this function for performance
-                    • Convert this C++ code to Python
-                    • Add error handling
-                    • Fix any bugs you find
-                    • Refactor this code to be more readable""",
+                placeholder="Examples: Add comments, Optimize for performance, Fix bugs, Refactor...",
                 height=350,
                 key=f"ai_prompt_{file_key}",
             )
@@ -615,10 +610,18 @@ Please provide the complete modified file content. Only return the code/content,
         """Render file action buttons"""
         file_path = str(file_path)
         st.write("---")
-        col1, col2, col3, col4, col5 = st.columns(5)
 
         file_data = st.session_state.editor_open_files[file_path]
         filename = Path(file_path).name
+
+        # Check if this is a FAUST file
+        is_faust_file = Path(file_path).suffix.lower() in [".dsp", ".fst", ".lib"]
+
+        # Adjust columns based on whether FAUST analysis is available
+        if is_faust_file:
+            col1, col2, col3, col4, col5, col6 = st.columns(6)
+        else:
+            col1, col2, col3, col4, col5 = st.columns(5)
 
         with col1:
             # Save file
@@ -701,6 +704,48 @@ Please provide the complete modified file content. Only return the code/content,
             # Close file - FIXED LOGIC
             self.render_close_button(file_path, file_data, filename)
 
+        # FAUST Analysis button (only for FAUST files)
+        if is_faust_file:
+            with col6:
+                if st.button("🎛️ Analyze", key=f"faust_analyze_{filename}"):
+                    self.analyze_faust_file(file_path, file_data)
+
+    def analyze_faust_file(self, file_path: str, file_data: dict):
+        """Analyze FAUST code using faust-mcp server"""
+        from src.core.faust_mcp_client import analyze_faust_code, check_faust_server
+        from src.ui.ui_components import render_faust_analysis
+
+        # Get current content (use AI suggested if available, otherwise current)
+        faust_code = file_data.get("ai_suggested_content") or file_data.get("current_content", "")
+
+        if not faust_code.strip():
+            st.warning("No FAUST code to analyze")
+            return
+
+        # Check if server is running
+        if not check_faust_server():
+            st.error("🎛️ faust-mcp server is not running")
+            st.info("Start it with: `./start_assistant.sh` or manually run the faust-mcp server on port 8765")
+            return
+
+        with st.spinner("🎛️ Compiling and analyzing FAUST code..."):
+            try:
+                result = analyze_faust_code(faust_code)
+                analysis_dict = {
+                    "status": result.status,
+                    "max_amplitude": result.max_amplitude,
+                    "rms": result.rms,
+                    "is_silent": result.is_silent,
+                    "waveform": result.waveform_ascii,
+                    "num_outputs": result.num_outputs,
+                    "channels": result.channels,
+                    "features": result.features,
+                    "error": result.error,
+                }
+                render_faust_analysis(analysis_dict)
+            except Exception as e:
+                st.error(f"Analysis failed: {e}")
+
     def render_close_button(self, file_path: str, file_data: dict, filename: str):
         """Render close button with proper confirmation logic"""
         has_changes = (
@@ -730,6 +775,7 @@ Please provide the complete modified file content. Only return the code/content,
                     ):
                         # Close the file
                         del st.session_state.editor_open_files[file_path]
+                        self._save_to_url()
                         # Clean up confirmation state
                         if confirm_key in st.session_state:
                             del st.session_state[confirm_key]
@@ -747,6 +793,7 @@ Please provide the complete modified file content. Only return the code/content,
             # No unsaved changes - close immediately
             if st.button("🗙 Close", key=f"close_{filename}"):
                 del st.session_state.editor_open_files[file_path]
+                self._save_to_url()
                 self._cleanup_editor_states(filename)
                 st.success(f"Closed {filename}")
                 st.rerun()
@@ -782,6 +829,51 @@ Please provide the complete modified file content. Only return the code/content,
     ):
         """Render multi-file tabbed editor interface"""
         st.header("📝 Code Editor")
+
+        # Ensure editor_open_files exists
+        if "editor_open_files" not in st.session_state:
+            st.session_state.editor_open_files = {}
+
+        # Restore file from URL if not already open
+        file_param = st.query_params.get("file", "")
+        if file_param:
+            file_path = urllib.parse.unquote(file_param)
+            file_path = str(Path(file_path))  # Normalize
+            if file_path not in st.session_state.editor_open_files:
+                path = Path(file_path)
+                if path.exists() and path.is_file():
+                    try:
+                        content = path.read_text(encoding="utf-8", errors="replace")
+                        st.session_state.editor_open_files[file_path] = {
+                            "original_content": content,
+                            "current_content": content,
+                            "language": self.get_language_from_extension(file_path),
+                            "has_unsaved_changes": False,
+                            "has_ai_suggestions": False,
+                            "ai_suggested_content": None,
+                            "is_binary": False,
+                        }
+                        st.toast(f"Restored: {path.name}", icon="📂")
+
+                        # Auto-expand folder containing this file in browser
+                        # Get relative path from project and expand parent folders
+                        if "browser_expanded_dirs" not in st.session_state:
+                            st.session_state.browser_expanded_dirs = set()
+
+                        # Try to get relative folder path
+                        try:
+                            rel_path = path.parent
+                            # Add all parent folders to expanded_dirs
+                            parts = str(rel_path).replace("\\", "/").split("/")
+                            for i in range(1, len(parts) + 1):
+                                partial = "/".join(parts[:i])
+                                if partial and partial not in [".", ".."]:
+                                    st.session_state.browser_expanded_dirs.add(partial)
+                        except Exception:
+                            pass
+
+                    except Exception as e:
+                        st.warning(f"Could not restore file: {e}")
 
         # File tabs
         if st.session_state.editor_open_files:
@@ -846,9 +938,7 @@ Please provide the complete modified file content. Only return the code/content,
             "is_binary": file_content.get("is_binary", False),
         }
 
-        # Debug output
-        st.success(
-            f"✅ Opened: {Path(file_path).name} ({len(file_content['content'])} chars)"
-        )
+        # Save to URL for persistence
+        self._save_to_url()
 
         return True

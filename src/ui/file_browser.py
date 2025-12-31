@@ -4,13 +4,52 @@ from typing import Dict, List, Set, Optional
 import os
 import platform
 import datetime
+import urllib.parse
 
 
 class FileBrowser:
     def __init__(self, file_editor):
         self.file_editor = file_editor
-        self.expanded_dirs = set()
         self.selected_files = set()
+
+        # Use session state for expanded_dirs to persist across reruns
+        if "browser_expanded_dirs" not in st.session_state:
+            st.session_state.browser_expanded_dirs = set()
+            # Restore from URL on first load
+            self._restore_from_url()
+
+    @property
+    def expanded_dirs(self):
+        """Get expanded dirs from session state."""
+        return st.session_state.get("browser_expanded_dirs", set())
+
+    @expanded_dirs.setter
+    def expanded_dirs(self, value):
+        """Set expanded dirs in session state."""
+        st.session_state.browser_expanded_dirs = value
+
+    def _restore_from_url(self):
+        """Restore expanded directories from URL query params."""
+        try:
+            folder_param = st.query_params.get("folder", "")
+            if folder_param:
+                folder_path = urllib.parse.unquote(folder_param)
+                # Expand all parent directories up to this path
+                parts = folder_path.replace("\\", "/").split("/")
+                for i in range(1, len(parts) + 1):
+                    partial_path = "/".join(parts[:i])
+                    st.session_state.browser_expanded_dirs.add(partial_path)
+        except Exception as e:
+            print(f"Error restoring folders from URL: {e}")
+
+    def _save_folder_to_url(self, folder_path: str):
+        """Save current folder to URL query params."""
+        try:
+            # Normalize path separators
+            folder_path = folder_path.replace("\\", "/")
+            st.query_params["folder"] = folder_path
+        except Exception as e:
+            print(f"Error saving folder to URL: {e}")
 
     def get_file_icon(self, file_path: str) -> str:
         """Get appropriate emoji icon for file type"""
@@ -125,6 +164,21 @@ class FileBrowser:
     ) -> Optional[str]:
         """Render interactive file tree and return selected file path"""
 
+        # Ensure browser_expanded_dirs exists in session state
+        if "browser_expanded_dirs" not in st.session_state:
+            st.session_state.browser_expanded_dirs = set()
+
+        # Always check URL for folder param and restore if needed
+        folder_param = st.query_params.get("folder", "")
+        if folder_param:
+            folder_path = urllib.parse.unquote(folder_param)
+            # Normalize and split path
+            parts = folder_path.replace("\\", "/").split("/")
+            for i in range(1, len(parts) + 1):
+                partial_path = "/".join(parts[:i])
+                if partial_path and partial_path not in st.session_state.browser_expanded_dirs:
+                    st.session_state.browser_expanded_dirs.add(partial_path)
+
         # Initialize show_all_files state if needed
         if "show_all_files" not in st.session_state:
             st.session_state["show_all_files"] = False
@@ -160,7 +214,10 @@ class FileBrowser:
 
         with col2:
             if st.button("📁 Collapse All", key="collapse_all_dirs", use_container_width=True):
-                self.expanded_dirs.clear()
+                st.session_state.browser_expanded_dirs = set()
+                # Clear folder from URL
+                if "folder" in st.query_params:
+                    del st.query_params["folder"]
                 st.rerun()
 
         with col3:
@@ -281,9 +338,11 @@ class FileBrowser:
                     use_container_width=True,
                 ):
                     if is_expanded:
-                        self.expanded_dirs.discard(dir_path)
+                        st.session_state.browser_expanded_dirs.discard(dir_path)
                     else:
-                        self.expanded_dirs.add(dir_path)
+                        st.session_state.browser_expanded_dirs.add(dir_path)
+                        # Save expanded folder to URL for persistence
+                        self._save_folder_to_url(dir_path)
                     st.rerun()
             with col2:
                 st.markdown(f"<div style='text-align: right; color: #888; font-size: 0.8em; padding-top: 8px;'>📄{file_count} 📁{dir_count}</div>", 
@@ -330,7 +389,7 @@ class FileBrowser:
             dir_path = (
                 os.path.join(current_path, dir_name) if current_path else dir_name
             )
-            self.expanded_dirs.add(dir_path)
+            st.session_state.browser_expanded_dirs.add(dir_path)
             self._expand_all_directories(dir_data, project_path, dir_path)
 
     def render_folder_picker(self):
