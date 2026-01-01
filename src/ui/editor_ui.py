@@ -617,9 +617,9 @@ Please provide the complete modified file content. Only return the code/content,
         # Check if this is a FAUST file
         is_faust_file = Path(file_path).suffix.lower() in [".dsp", ".fst", ".lib"]
 
-        # Adjust columns based on whether FAUST analysis is available
+        # Adjust columns based on whether FAUST tools are available
         if is_faust_file:
-            col1, col2, col3, col4, col5, col6 = st.columns(6)
+            col1, col2, col3, col4, col5, col6, col7, col8 = st.columns(8)
         else:
             col1, col2, col3, col4, col5 = st.columns(5)
 
@@ -704,11 +704,31 @@ Please provide the complete modified file content. Only return the code/content,
             # Close file - FIXED LOGIC
             self.render_close_button(file_path, file_data, filename)
 
-        # FAUST Analysis button (only for FAUST files)
+        # FAUST tools (only for FAUST files)
         if is_faust_file:
             with col6:
+                # Syntax Check (fast, local)
+                if st.button("✓ Syntax", key=f"faust_syntax_{filename}"):
+                    self.check_faust_syntax_file(file_path, file_data)
+
+            with col7:
+                # Full Analysis (offline, via MCP)
                 if st.button("🎛️ Analyze", key=f"faust_analyze_{filename}"):
                     self.analyze_faust_file(file_path, file_data)
+
+            with col8:
+                # Run/Stop Realtime
+                is_running = st.session_state.faust_realtime.get("running", False)
+                if is_running:
+                    if st.button("⏹️ Stop", key=f"faust_stop_{filename}"):
+                        self.stop_faust_realtime()
+                else:
+                    if st.button("▶️ Run", key=f"faust_run_{filename}"):
+                        self.run_faust_realtime(file_path, file_data)
+
+        # Show realtime status if running
+        if st.session_state.faust_realtime.get("running", False):
+            st.success("🔊 DSP Running - [Open Parameter UI](http://127.0.0.1:8787/)")
 
     def analyze_faust_file(self, file_path: str, file_data: dict):
         """Analyze FAUST code using faust-mcp server"""
@@ -745,6 +765,70 @@ Please provide the complete modified file content. Only return the code/content,
                 render_faust_analysis(analysis_dict)
             except Exception as e:
                 st.error(f"Analysis failed: {e}")
+
+    def check_faust_syntax_file(self, file_path: str, file_data: dict):
+        """Quick syntax check using faust compiler directly"""
+        from src.core.faust_mcp_client import check_faust_syntax
+
+        # Get current content (use AI suggested if available)
+        faust_code = file_data.get("ai_suggested_content") or file_data.get("current_content", "")
+
+        if not faust_code.strip():
+            st.warning("No FAUST code to check")
+            return
+
+        with st.spinner("Checking syntax..."):
+            result = check_faust_syntax(faust_code)
+
+            if result["success"]:
+                st.success("✓ Syntax OK")
+            else:
+                st.error(f"**Syntax Error:**\n```\n{result['errors']}\n```")
+
+    def run_faust_realtime(self, file_path: str, file_data: dict):
+        """Compile and start FAUST code in realtime"""
+        from src.core.faust_realtime_client import run_faust, check_realtime_server
+
+        # Get current content (use AI suggested if available)
+        faust_code = file_data.get("ai_suggested_content") or file_data.get("current_content", "")
+
+        if not faust_code.strip():
+            st.warning("No FAUST code to run")
+            return
+
+        # Check if realtime server is running
+        if not check_realtime_server():
+            st.error("Realtime server not running on :8000")
+            st.info("Start with: `WEBAUDIO_ROOT=... MCP_TRANSPORT=sse MCP_PORT=8000 python3 faust_realtime_server.py`")
+            return
+
+        with st.spinner("Compiling and starting DSP..."):
+            result = run_faust(faust_code)
+
+            if result.success:
+                st.session_state.faust_realtime["running"] = True
+                st.session_state.faust_realtime["current_file"] = file_path
+                st.success(f"▶️ DSP Started: {result.message}")
+                st.rerun()
+            else:
+                st.error(f"Failed to start: {result.error}")
+
+    def stop_faust_realtime(self):
+        """Stop the currently running FAUST DSP"""
+        from src.core.faust_realtime_client import stop_faust
+
+        with st.spinner("Stopping DSP..."):
+            result = stop_faust()
+
+            st.session_state.faust_realtime["running"] = False
+            st.session_state.faust_realtime["current_file"] = None
+
+            if result.success:
+                st.success("⏹️ DSP Stopped")
+            else:
+                st.warning(f"Stop command sent (may have already stopped): {result.error}")
+
+            st.rerun()
 
     def render_close_button(self, file_path: str, file_data: dict, filename: str):
         """Render close button with proper confirmation logic"""

@@ -58,6 +58,13 @@ if [[ $(uname -m) != "arm64" ]]; then
     print_warning "This system is optimized for Apple Silicon (M1/M2/M3/M4)"
 fi
 
+# Check Git
+if ! check_command git; then
+    print_error "Git is required"
+    echo "Install with: brew install git"
+    exit 1
+fi
+
 # Check Python
 if check_command python3; then
     PYTHON_VERSION=$(python3 --version | cut -d' ' -f2)
@@ -230,6 +237,84 @@ else
     print_success "Model configuration already exists"
 fi
 
+# Setup faust-mcp server
+print_header "Setting up faust-mcp Server"
+
+FAUST_MCP_DIR="../tools/faust-mcp"
+if [ ! -d "$FAUST_MCP_DIR" ]; then
+    print_warning "Cloning faust-mcp..."
+    mkdir -p ../tools
+    git clone https://github.com/sletz/faust-mcp.git "$FAUST_MCP_DIR"
+    print_success "faust-mcp cloned"
+else
+    print_success "faust-mcp already exists"
+    # Pull latest
+    cd "$FAUST_MCP_DIR" && git pull origin main 2>/dev/null && cd - > /dev/null
+fi
+
+# Check for Faust compiler (optional but recommended)
+print_header "Checking Faust Compiler"
+if check_command faust; then
+    FAUST_VERSION=$(faust --version 2>/dev/null | head -1)
+    print_success "Faust version: $FAUST_VERSION"
+else
+    print_warning "Faust compiler not installed (syntax check will be unavailable)"
+    echo "  Install with: brew install faust"
+fi
+
+# Setup node-web-audio-api for realtime audio
+print_header "Setting up Realtime Audio (node-web-audio-api)"
+
+WEBAUDIO_DIR="$FAUST_MCP_DIR/external/node-web-audio-api"
+
+# Check for Node.js
+if ! check_command node; then
+    print_warning "Node.js not installed. Installing..."
+    brew install node
+fi
+
+if ! check_command npm; then
+    print_error "npm not found after Node.js install"
+else
+    print_success "Node.js and npm available"
+fi
+
+# Initialize submodule
+if [ ! -d "$WEBAUDIO_DIR" ] || [ ! -f "$WEBAUDIO_DIR/package.json" ]; then
+    print_warning "Initializing node-web-audio-api submodule..."
+    cd "$FAUST_MCP_DIR"
+    git submodule update --init external/node-web-audio-api 2>/dev/null || true
+    cd - > /dev/null
+fi
+
+# Check for Rust (needed to build native bindings)
+if ! check_command cargo; then
+    print_warning "Rust not installed. Installing via rustup..."
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    source "$HOME/.cargo/env"
+    print_success "Rust installed"
+else
+    print_success "Rust is available"
+fi
+
+# Build node-web-audio-api
+if [ -d "$WEBAUDIO_DIR" ] && [ -f "$WEBAUDIO_DIR/package.json" ]; then
+    if [ ! -f "$WEBAUDIO_DIR/node-web-audio-api.build-release.node" ]; then
+        print_warning "Building node-web-audio-api (this may take ~1 min)..."
+        cd "$WEBAUDIO_DIR"
+        source "$HOME/.cargo/env" 2>/dev/null || true
+        npm install
+        npm run build
+        cd - > /dev/null
+        print_success "node-web-audio-api built"
+    else
+        print_success "node-web-audio-api already built"
+    fi
+else
+    print_warning "node-web-audio-api submodule not available"
+    echo "  Realtime audio will be unavailable"
+fi
+
 # Download sample documentation
 print_header "Downloading Sample Documentation"
 
@@ -276,19 +361,32 @@ EOF
 chmod +x run.sh
 print_success "Run script created"
 
+# Copy start_assistant.sh to parent directory
+print_header "Setting up Unified Launcher"
+if [ -f "start_assistant.sh" ]; then
+    cp start_assistant.sh ../start_assistant.sh
+    chmod +x ../start_assistant.sh
+    print_success "Copied start_assistant.sh to parent directory"
+else
+    print_warning "start_assistant.sh not found in repo"
+fi
+
 # Final message
-print_header "Setup Complete! 🎉"
+print_header "Setup Complete!"
 
 echo -e "${GREEN}Multi-Model AI Development Assistant is ready!${NC}\n"
-echo "To start the application:"
-echo -e "  ${BLUE}./run.sh${NC}"
+echo "To start the application (recommended):"
+echo -e "  ${BLUE}cd .. && ./start_assistant.sh${NC}"
 echo ""
-echo "Or manually:"
-echo -e "  ${BLUE}source venv/bin/activate${NC}"
-echo -e "  ${BLUE}streamlit run main.py${NC}"
+echo "This starts all services:"
+echo "  - Streamlit App:       http://localhost:8501"
+echo "  - FAUST Analysis:      http://localhost:8765/sse"
+echo "  - FAUST Realtime:      http://localhost:8000/sse"
+echo "  - FAUST UI:            http://localhost:8787/"
+echo "  - Ollama API:          http://localhost:11434"
 echo ""
-echo "Access the application at:"
-echo -e "  ${BLUE}http://localhost:8501${NC}"
+echo "Or start manually (Streamlit only):"
+echo -e "  ${BLUE}source venv/bin/activate && streamlit run main.py${NC}"
 echo ""
 print_warning "Note: First run may be slow as models are loaded into memory"
 
@@ -297,5 +395,5 @@ echo ""
 read -p "Would you like to start the application now? (y/n) " -n 1 -r
 echo ""
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    ./run.sh
+    cd .. && ./start_assistant.sh
 fi

@@ -1,19 +1,75 @@
-# Local AI Coding Assistant
+# Multi-Model AI Development Assistant
 
-**A local, offline AI reasoning assistant for FAUST/JUCE audio DSP development**
+**A local, offline AI reasoning assistant for FAUST/JUCE audio DSP development with real-time audio preview**
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
 [![Streamlit](https://img.shields.io/badge/streamlit-1.30%2B-FF4B4B)](https://streamlit.io/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-macOS%20(M4%20Max)-silver)](https://www.apple.com/)
+[![Platform](https://img.shields.io/badge/platform-macOS%20(Apple%20Silicon)-silver)](https://www.apple.com/)
 
-## Quick Start
+---
+
+## Quick Setup (New Users)
+
+### Option 1: Automated Setup (Recommended)
 
 ```bash
-source venv/bin/activate
-streamlit run main.py
-# Access at http://localhost:8501
+# Clone the repository
+git clone https://github.com/Mando-369/multi-model-AI-development-assistant.git
+cd multi-model-AI-development-assistant
+
+# Run the setup script (installs everything)
+chmod +x setup.sh
+./setup.sh
 ```
+
+The setup script will:
+- Install Ollama and pull AI models
+- Create Python virtual environment
+- Install all dependencies
+- Clone and build faust-mcp (FAUST analysis & realtime audio)
+- Install Rust (for native audio bindings)
+- Build node-web-audio-api (WebAudio backend)
+
+### Option 2: Manual Setup
+
+See [Manual Installation](#installation) below.
+
+---
+
+## Starting the Assistant
+
+After setup, start all services with:
+
+```bash
+cd ..  # Go to parent directory
+./start_assistant.sh
+```
+
+This starts:
+| Service | URL | Purpose |
+|---------|-----|---------|
+| Streamlit App | http://localhost:8501 | Main UI |
+| FAUST Analysis | http://localhost:8765/sse | Offline audio analysis |
+| FAUST Realtime | http://localhost:8000/sse | Live audio playback |
+| FAUST UI | http://localhost:8787 | Parameter sliders |
+| Ollama API | http://localhost:11434 | AI models |
+
+Press `Ctrl+C` to stop all services.
+
+---
+
+## FAUST Integration
+
+The assistant includes deep FAUST integration via [faust-mcp](https://github.com/sletz/faust-mcp):
+
+| Button | Function | Server |
+|--------|----------|--------|
+| **✓ Syntax** | Fast syntax validation | Local `faust` CLI |
+| **🎛️ Analyze** | Compile + audio metrics | :8765 (offline) |
+| **▶️ Run** | Compile + live playback | :8000 (realtime) |
+
+When a DSP is running, click the link to open the **Parameter UI** at http://localhost:8787 for real-time slider control.
 
 ---
 
@@ -55,6 +111,8 @@ Models are **configurable** via the **⚙️ Model Setup** tab. Select any insta
 
 Change models anytime - configuration persists in `model_config.json`.
 
+**Ollama Cloud Models**: With Ollama v0.12+, you can also select cloud-hosted models like `cloud/glm-4.6` or `cloud/qwen3-coder:480b` for access to larger models that won't fit locally. These work seamlessly with the same API.
+
 ## Specialist Modes
 
 | Mode | Icon | Focus |
@@ -69,60 +127,96 @@ Change models anytime - configuration persists in `model_config.json`.
 ## Requirements
 
 ### System Requirements
-- **macOS** with Apple Silicon (M4 Max recommended)
-- **64GB+ RAM** (32B models run well on 64GB)
+- **macOS** with Apple Silicon (M1/M2/M3/M4)
+- **32GB+ RAM** (64GB recommended for 32B models)
 - **Python 3.10+**
+- **Node.js 18+** (for realtime audio)
+- **Git** (for cloning repos)
 
-### Model Requirements
-- **Ollama** installed and running
-- Models:
-  - `deepseek-r1:32b` - Primary reasoning model
-  - `qwen2.5:32b` - Fast summarization
+### Optional (installed automatically by setup.sh)
+- **Rust** - Required for building node-web-audio-api
+- **Faust compiler** - Required for syntax checking (`brew install faust`)
+
+### AI Models
+- **Ollama** - Local model server (also supports [cloud models](https://ollama.com/blog/cloud-models))
+- `deepseek-r1:32b` - Primary reasoning model (local)
+- `qwen2.5:32b` - Fast summarization (local)
+
+#### Ollama Cloud Models (Optional)
+With Ollama v0.12+, you can also use cloud-hosted models for larger models that won't fit locally:
+- `cloud/glm-4.6` - GLM-4.6 (cloud)
+- `cloud/qwen3-coder:480b` - Qwen3 Coder 480B (cloud)
+
+Cloud models work seamlessly with the same API. Free tier available with usage limits. See [Ollama Cloud](https://ollama.com/cloud) for details.
 
 ## Installation
 
-### 1. Clone the Repository
+### Automated (Recommended)
+
 ```bash
 git clone https://github.com/Mando-369/multi-model-AI-development-assistant.git
 cd multi-model-AI-development-assistant
+./setup.sh
 ```
 
-### 2. Install Ollama and Models
+### Manual Installation
+
+#### 1. Clone and Setup Python
 ```bash
-# Install Ollama (macOS)
+git clone https://github.com/Mando-369/multi-model-AI-development-assistant.git
+cd multi-model-AI-development-assistant
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+#### 2. Install Ollama and Models
+```bash
 curl -fsSL https://ollama.ai/install.sh | sh
-
-# Start Ollama service
-ollama serve
-
-# Pull required models
+ollama serve &
 ollama pull deepseek-r1:32b
 ollama pull qwen2.5:32b
 ```
 
-### 3. Create Virtual Environment
+#### 3. Setup faust-mcp (FAUST Integration)
 ```bash
-python -m venv venv
-source venv/bin/activate
+mkdir -p ../tools
+git clone https://github.com/sletz/faust-mcp.git ../tools/faust-mcp
+cd ../tools/faust-mcp
+git submodule update --init external/node-web-audio-api
 ```
 
-### 4. Install Dependencies
+#### 4. Install Rust and Build WebAudio (for Realtime)
 ```bash
-pip install -r requirements.txt
+# Install Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+source "$HOME/.cargo/env"
+
+# Build node-web-audio-api
+cd external/node-web-audio-api
+npm install
+npm run build
 ```
 
-### 5. Load Documentation (Optional)
+#### 5. Install Faust Compiler (Optional)
 ```bash
-python scripts/load_documentation.py
+brew install faust
 ```
 
 ## Usage
 
-### Starting the System
+### Starting All Services (Recommended)
+```bash
+cd ..  # Parent directory
+./start_assistant.sh
+```
+
+### Starting Streamlit Only
 ```bash
 source venv/bin/activate
 streamlit run main.py
 # Access at http://localhost:8501
+# Note: FAUST Analyze/Run buttons won't work without faust-mcp servers
 ```
 
 ### Workflow Example
@@ -184,10 +278,18 @@ Easy to identify which specialist mode was used!
 
 ## Roadmap
 
-### Current (v2.2)
-- [x] **Dynamic Model Selection** - Choose any Ollama model for Reasoning/Fast roles
-- [x] **Model Setup Tab** - UI for model configuration
-- [x] **Backend Abstraction** - Prepared for HuggingFace/Transformers support
+### Current (v2.3)
+- [x] **FAUST Realtime Audio** - Compile and play FAUST code live via WebAudio
+- [x] **Three FAUST Buttons** - Syntax check, Analyze, Run/Stop
+- [x] **faust-mcp Integration** - Full integration with faust-mcp server
+- [x] **Parameter UI** - Real-time parameter control via faust-ui
+- [x] **Unified Launcher** - start_assistant.sh starts all services
+- [x] **URL State Persistence** - Browse folder and open file persist across reloads
+
+### Completed (v2.2)
+- [x] Dynamic Model Selection - Choose any Ollama model for Reasoning/Fast roles
+- [x] Model Setup Tab - UI for model configuration
+- [x] Backend Abstraction - Prepared for HuggingFace/Transformers support
 
 ### Completed (v2.1)
 - [x] Project Meta System with PROJECT_META.md per project
@@ -204,9 +306,9 @@ Easy to identify which specialist mode was used!
 - [x] Persistent tab navigation
 
 ### Future
+- [ ] **Embedded Parameter Sliders** - Control FAUST params directly in UI
 - [ ] **HuggingFace Backend** - GLM-4.6V and other Transformers models via MPS
-- [ ] **IDE Integration** - Cline/Continue.dev integration when model chaining is supported
-- [ ] **MCP Server** - Expose ChromaDB knowledge base to external tools
+- [ ] **IDE Integration** - Cline/Continue.dev integration
 - [ ] **Voice input** - Whisper integration for hands-free queries
 
 ## Troubleshooting
@@ -215,6 +317,29 @@ Easy to identify which specialist mode was used!
 ```bash
 ollama serve    # Ensure Ollama is running
 ollama list     # Check available models
+```
+
+### FAUST Servers Not Starting
+```bash
+# Check if ports are in use
+lsof -i:8765 -i:8000 -i:8787
+
+# Check server logs
+cat ../tools/faust-mcp/server.log
+cat ../tools/faust-mcp/realtime_server.log
+
+# Rebuild node-web-audio-api if needed
+cd ../tools/faust-mcp/external/node-web-audio-api
+npm run build
+```
+
+### Syntax Check Not Working
+```bash
+# Install Faust compiler
+brew install faust
+
+# Verify installation
+faust --version
 ```
 
 ### Memory Issues

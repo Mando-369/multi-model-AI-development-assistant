@@ -49,6 +49,13 @@ def main():
             st.session_state.file_editor, st.session_state.multi_glm_system
         )
 
+    # Initialize FAUST realtime state
+    if "faust_realtime" not in st.session_state:
+        st.session_state.faust_realtime = {
+            "running": False,
+            "current_file": None,
+        }
+
     # Project management (shared across all tabs)
     selected_project = render_project_management(st.session_state.multi_glm_system)
 

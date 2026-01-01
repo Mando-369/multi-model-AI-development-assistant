@@ -256,6 +256,64 @@ def get_faust_version() -> Optional[str]:
         return None
 
 
+def check_faust_syntax(faust_code: str) -> Dict[str, Any]:
+    """
+    Fast syntax check using faust compiler directly.
+
+    Args:
+        faust_code: FAUST DSP source code
+
+    Returns:
+        Dict with 'success' bool and 'errors' string if failed
+    """
+    import tempfile
+    import os
+
+    # Write code to temp file
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode='w',
+            suffix='.dsp',
+            delete=False,
+            encoding='utf-8'
+        ) as f:
+            f.write(faust_code)
+            temp_path = f.name
+    except Exception as e:
+        return {"success": False, "errors": f"Failed to create temp file: {e}"}
+
+    try:
+        # Run faust with null output to just check syntax
+        result = subprocess.run(
+            ['faust', '-o', '/dev/null', temp_path],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        if result.returncode == 0:
+            return {"success": True, "errors": None}
+        else:
+            # Extract meaningful error message
+            error_text = result.stderr.strip()
+            # Replace temp path with more readable name
+            error_text = error_text.replace(temp_path, "<code>")
+            return {"success": False, "errors": error_text}
+
+    except subprocess.TimeoutExpired:
+        return {"success": False, "errors": "Syntax check timed out (10s)"}
+    except FileNotFoundError:
+        return {"success": False, "errors": "Faust compiler not found. Is it installed?"}
+    except Exception as e:
+        return {"success": False, "errors": f"Syntax check failed: {e}"}
+    finally:
+        # Clean up temp file
+        try:
+            os.unlink(temp_path)
+        except Exception:
+            pass
+
+
 # Simple test code
 if __name__ == "__main__":
     # Test code
