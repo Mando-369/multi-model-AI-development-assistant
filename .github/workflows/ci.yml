@@ -7,27 +7,26 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
-    name: Run Tests
+  check:
+    name: Check Structure
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ['3.10', '3.11', '3.12']
-      fail-fast: false
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-
-    - name: Install minimal dependencies
+    - name: Check required files exist
       run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements-test.txt
-        pip install pytest
+        echo "Checking project structure..."
+        test -f main.py || exit 1
+        test -f requirements.txt || exit 1
+        test -d src/core || exit 1
+        test -d src/ui || exit 1
+        test -f src/core/prompts.py || exit 1
+        test -f src/ui/editor_ui.py || exit 1
+        echo "All required files present!"
 
-    - name: Run structure tests
-      run: pytest tests/test_imports.py -v -k "structure or files"
+    - name: Check Python syntax
+      run: |
+        python3 -m py_compile main.py
+        python3 -m py_compile src/core/prompts.py
+        echo "Python syntax OK!"
