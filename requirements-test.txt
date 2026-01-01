@@ -1,0 +1,4 @@
+# Minimal requirements for CI testing
+streamlit>=1.28.0
+requests>=2.31.0
+pathlib>=1.0.1
