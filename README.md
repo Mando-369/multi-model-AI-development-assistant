@@ -42,7 +42,6 @@ See [Manual Installation](#installation) below.
 After setup, start all services with:
 
 ```bash
-cd ..  # Go to parent directory
 ./start_assistant.sh
 ```
 
@@ -65,11 +64,13 @@ The assistant includes deep FAUST integration via [faust-mcp](https://github.com
 
 | Button | Function | Server |
 |--------|----------|--------|
-| **✓ Syntax** | Fast syntax validation | Local `faust` CLI |
+| **✓ Syntax** | Fast syntax validation | :8000 (WASM) or local CLI fallback |
 | **🎛️ Analyze** | Compile + audio metrics | :8765 (offline) |
 | **▶️ Run** | Compile + live playback | :8000 (realtime) |
 
 When a DSP is running, click the link to open the **Parameter UI** at http://localhost:8787 for real-time slider control.
+
+**Note**: Syntax checking uses the realtime server's WASM compiler by default. Local Faust CLI is only used as fallback when the realtime server isn't running.
 
 ---
 
@@ -135,7 +136,7 @@ Change models anytime - configuration persists in `model_config.json`.
 
 ### Optional (installed automatically by setup.sh)
 - **Rust** - Required for building node-web-audio-api
-- **Faust compiler** - Required for syntax checking (`brew install faust`)
+- **Faust compiler** - Optional fallback for syntax checking when realtime server not running (`brew install faust`)
 
 ### AI Models
 - **Ollama** - Local model server (also supports [cloud models](https://ollama.com/blog/cloud-models))

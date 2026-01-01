@@ -29,10 +29,9 @@ class EditorUI:
             file_param = st.query_params.get("file", "")
 
             if file_param:
-                # Decode URL-encoded path
+                # Decode URL-encoded path and normalize to absolute
                 file_path = urllib.parse.unquote(file_param)
-                # Normalize path
-                file_path = str(Path(file_path))
+                file_path = str(Path(file_path).resolve())  # Normalize to absolute path
                 path = Path(file_path)
 
                 if path.exists() and path.is_file():
@@ -61,8 +60,8 @@ class EditorUI:
         try:
             open_files = list(st.session_state.get("editor_open_files", {}).keys())
             if open_files:
-                # Save the first/active file to URL (normalize path)
-                file_path = str(Path(open_files[0]))
+                # Save the first/active file to URL (use absolute path)
+                file_path = str(Path(open_files[0]).resolve())
                 st.query_params["file"] = file_path
             else:
                 # Clear file param if no files open
@@ -143,8 +142,8 @@ class EditorUI:
     ) -> Dict:
         """Render main code editor interface"""
 
-        # Ensure file_path is a string
-        file_path = str(file_path)
+        # Normalize to absolute path for consistent keying
+        file_path = str(Path(file_path).resolve())
 
         # Initialize session state for open files if not present
         if "editor_open_files" not in st.session_state:
@@ -236,11 +235,9 @@ class EditorUI:
             st.info("🎵 **FAUST file** - Monaco-inspired syntax highlighting")
 
         # Store the content in a separate session state key for the editor
+        # IMPORTANT: Only initialize if not already present - preserve user edits across reruns
         editor_value_key = f"editor_value_{file_hash}"
-        if (
-            editor_value_key not in st.session_state
-            or st.session_state[editor_value_key] != content_to_display
-        ):
+        if editor_value_key not in st.session_state:
             st.session_state[editor_value_key] = content_to_display
 
         try:
@@ -260,17 +257,20 @@ class EditorUI:
                 annotations=None,  # Simplify for now
             )
 
-            # Update content if changed
+            # Update content if changed (comparing against editor value, not file data)
             if editor_content is not None and editor_content != "":
-                # Only update if actually changed
-                if editor_content != file_data["current_content"]:
+                # Check if content differs from what we passed to st_ace
+                if editor_content != st.session_state[editor_value_key]:
+                    # User made edits - update session state
+                    st.session_state[editor_value_key] = editor_content
                     st.session_state.editor_open_files[file_path][
                         "current_content"
                     ] = editor_content
                     st.session_state.editor_open_files[file_path][
                         "has_unsaved_changes"
                     ] = True
-                    st.session_state[editor_value_key] = editor_content
+                    # Rerun to show updated content in editor
+                    st.rerun()
 
         except Exception as e:
             st.error(f"Editor error: {e}")
@@ -445,6 +445,11 @@ Please provide the complete modified file content. Only return the code/content,
                         st.session_state.editor_open_files[file_path][
                             "has_ai_suggestions"
                         ] = True
+                        # Clear editor value to show AI suggestions
+                        file_hash = hashlib.md5(file_path.encode()).hexdigest()[:8]
+                        editor_value_key = f"editor_value_{file_hash}"
+                        if editor_value_key in st.session_state:
+                            del st.session_state[editor_value_key]
 
                         st.success(
                             f"✅ AI suggestions applied! {result['changes_count']} changes detected."
@@ -477,7 +482,7 @@ Please provide the complete modified file content. Only return the code/content,
 
     def render_diff_view(self, file_path: str):
         """Render diff visualization for AI changes"""
-        file_path = str(file_path)
+        file_path = str(Path(file_path).resolve())
         file_data = st.session_state.editor_open_files[file_path]
 
         if not file_data.get("ai_suggested_content"):
@@ -571,7 +576,7 @@ Please provide the complete modified file content. Only return the code/content,
 
     def get_editor_annotations(self, file_path: str) -> List[Dict]:
         """Get annotations for highlighting changes in the editor"""
-        file_path = str(file_path)
+        file_path = str(Path(file_path).resolve())
         if file_path not in self.file_editor.file_states:
             return []
 
@@ -608,7 +613,7 @@ Please provide the complete modified file content. Only return the code/content,
 
     def render_file_actions(self, file_path: str):
         """Render file action buttons"""
-        file_path = str(file_path)
+        file_path = str(Path(file_path).resolve())
         st.write("---")
 
         file_data = st.session_state.editor_open_files[file_path]
@@ -668,6 +673,11 @@ Please provide the complete modified file content. Only return the code/content,
                     st.session_state.editor_open_files[file_path][
                         "ai_suggested_content"
                     ] = None
+                    # Clear editor value to force refresh
+                    file_hash = hashlib.md5(file_path.encode()).hexdigest()[:8]
+                    editor_value_key = f"editor_value_{file_hash}"
+                    if editor_value_key in st.session_state:
+                        del st.session_state[editor_value_key]
                     st.success("Changes reverted!")
                     st.rerun()
 
@@ -684,6 +694,11 @@ Please provide the complete modified file content. Only return the code/content,
                     st.session_state.editor_open_files[file_path][
                         "has_unsaved_changes"
                     ] = True
+                    # Clear editor value to force refresh
+                    file_hash = hashlib.md5(file_path.encode()).hexdigest()[:8]
+                    editor_value_key = f"editor_value_{file_hash}"
+                    if editor_value_key in st.session_state:
+                        del st.session_state[editor_value_key]
                     st.success("AI suggestions accepted!")
                     st.rerun()
 
@@ -705,30 +720,46 @@ Please provide the complete modified file content. Only return the code/content,
             self.render_close_button(file_path, file_data, filename)
 
         # FAUST tools (only for FAUST files)
+        syntax_check_triggered = False
+        analyze_triggered = False
+        run_triggered = False
+        stop_triggered = False
+
         if is_faust_file:
             with col6:
                 # Syntax Check (fast, local)
                 if st.button("✓ Syntax", key=f"faust_syntax_{filename}"):
-                    self.check_faust_syntax_file(file_path, file_data)
+                    syntax_check_triggered = True
 
             with col7:
                 # Full Analysis (offline, via MCP)
                 if st.button("🎛️ Analyze", key=f"faust_analyze_{filename}"):
-                    self.analyze_faust_file(file_path, file_data)
+                    analyze_triggered = True
 
             with col8:
                 # Run/Stop Realtime
                 is_running = st.session_state.faust_realtime.get("running", False)
                 if is_running:
                     if st.button("⏹️ Stop", key=f"faust_stop_{filename}"):
-                        self.stop_faust_realtime()
+                        stop_triggered = True
                 else:
                     if st.button("▶️ Run", key=f"faust_run_{filename}"):
-                        self.run_faust_realtime(file_path, file_data)
+                        run_triggered = True
 
         # Show realtime status if running
         if st.session_state.faust_realtime.get("running", False):
             st.success("🔊 DSP Running - [Open Parameter UI](http://127.0.0.1:8787/)")
+
+        # Handle FAUST actions OUTSIDE columns for full-width display
+        if is_faust_file:
+            if syntax_check_triggered:
+                self.check_faust_syntax_file(file_path, file_data)
+            if analyze_triggered:
+                self.analyze_faust_file(file_path, file_data)
+            if run_triggered:
+                self.run_faust_realtime(file_path, file_data)
+            if stop_triggered:
+                self.stop_faust_realtime()
 
     def analyze_faust_file(self, file_path: str, file_data: dict):
         """Analyze FAUST code using faust-mcp server"""
@@ -767,7 +798,8 @@ Please provide the complete modified file content. Only return the code/content,
                 st.error(f"Analysis failed: {e}")
 
     def check_faust_syntax_file(self, file_path: str, file_data: dict):
-        """Quick syntax check using faust compiler directly"""
+        """Quick syntax check - uses realtime server (WASM) or local faust CLI as fallback"""
+        from src.core.faust_realtime_client import check_faust_syntax_realtime, check_realtime_server
         from src.core.faust_mcp_client import check_faust_syntax
 
         # Get current content (use AI suggested if available)
@@ -778,12 +810,26 @@ Please provide the complete modified file content. Only return the code/content,
             return
 
         with st.spinner("Checking syntax..."):
-            result = check_faust_syntax(faust_code)
-
-            if result["success"]:
-                st.success("✓ Syntax OK")
+            # Try realtime server first (WASM-based, no local faust needed)
+            if check_realtime_server():
+                result = check_faust_syntax_realtime(faust_code)
+                if result.success:
+                    st.success("✓ **Syntax OK** - No errors found")
+                    if result.params:
+                        with st.expander("Parameters detected"):
+                            for p in result.params:
+                                st.text(f"  {p.get('label', p.get('address', '?'))}: {p.get('init', 0)}")
+                else:
+                    st.error("**✗ Syntax Error**")
+                    st.code(result.error, language="text")
             else:
-                st.error(f"**Syntax Error:**\n```\n{result['errors']}\n```")
+                # Fallback to local faust CLI
+                result = check_faust_syntax(faust_code)
+                if result["success"]:
+                    st.success("✓ **Syntax OK** - No errors found")
+                else:
+                    st.error("**✗ Syntax Error**")
+                    st.code(result["errors"], language="text")
 
     def run_faust_realtime(self, file_path: str, file_data: dict):
         """Compile and start FAUST code in realtime"""
@@ -918,12 +964,19 @@ Please provide the complete modified file content. Only return the code/content,
         if "editor_open_files" not in st.session_state:
             st.session_state.editor_open_files = {}
 
-        # Restore file from URL if not already open
+        # Restore file from URL if not already open (only once per session)
         file_param = st.query_params.get("file", "")
         if file_param:
             file_path = urllib.parse.unquote(file_param)
-            file_path = str(Path(file_path))  # Normalize
-            if file_path not in st.session_state.editor_open_files:
+            file_path = str(Path(file_path).resolve())  # Normalize to absolute path
+
+            # Track which files we've already restored this session
+            if "editor_restored_files" not in st.session_state:
+                st.session_state.editor_restored_files = set()
+
+            # Only restore if not already in open files AND not already restored this session
+            if (file_path not in st.session_state.editor_open_files and
+                file_path not in st.session_state.editor_restored_files):
                 path = Path(file_path)
                 if path.exists() and path.is_file():
                     try:
@@ -937,17 +990,16 @@ Please provide the complete modified file content. Only return the code/content,
                             "ai_suggested_content": None,
                             "is_binary": False,
                         }
+                        st.session_state.editor_restored_files.add(file_path)
                         st.toast(f"Restored: {path.name}", icon="📂")
 
                         # Auto-expand folder containing this file in browser
-                        # Get relative path from project and expand parent folders
                         if "browser_expanded_dirs" not in st.session_state:
                             st.session_state.browser_expanded_dirs = set()
 
                         # Try to get relative folder path
                         try:
                             rel_path = path.parent
-                            # Add all parent folders to expanded_dirs
                             parts = str(rel_path).replace("\\", "/").split("/")
                             for i in range(1, len(parts) + 1):
                                 partial = "/".join(parts[:i])
@@ -997,7 +1049,7 @@ Please provide the complete modified file content. Only return the code/content,
 
     def open_file_in_editor(self, file_path: str) -> bool:
         """Open a file in the editor"""
-        file_path = str(file_path)
+        file_path = str(Path(file_path).resolve())  # Normalize to absolute path
 
         # Check if file is already open
         if file_path in st.session_state.editor_open_files:

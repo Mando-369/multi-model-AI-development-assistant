@@ -361,22 +361,12 @@ EOF
 chmod +x run.sh
 print_success "Run script created"
 
-# Copy start_assistant.sh to parent directory
-print_header "Setting up Unified Launcher"
-if [ -f "start_assistant.sh" ]; then
-    cp start_assistant.sh ../start_assistant.sh
-    chmod +x ../start_assistant.sh
-    print_success "Copied start_assistant.sh to parent directory"
-else
-    print_warning "start_assistant.sh not found in repo"
-fi
-
 # Final message
 print_header "Setup Complete!"
 
 echo -e "${GREEN}Multi-Model AI Development Assistant is ready!${NC}\n"
 echo "To start the application (recommended):"
-echo -e "  ${BLUE}cd .. && ./start_assistant.sh${NC}"
+echo -e "  ${BLUE}./start_assistant.sh${NC}"
 echo ""
 echo "This starts all services:"
 echo "  - Streamlit App:       http://localhost:8501"
@@ -395,5 +385,5 @@ echo ""
 read -p "Would you like to start the application now? (y/n) " -n 1 -r
 echo ""
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    cd .. && ./start_assistant.sh
+    ./start_assistant.sh
 fi

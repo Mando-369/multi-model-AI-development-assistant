@@ -20,6 +20,7 @@ from .faust_realtime_client import (
     get_faust_params,
     set_faust_param,
     check_realtime_server,
+    check_faust_syntax_realtime,
 )
 
 __all__ = [
@@ -47,4 +48,5 @@ __all__ = [
     'get_faust_params',
     'set_faust_param',
     'check_realtime_server',
+    'check_faust_syntax_realtime',
 ]

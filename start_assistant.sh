@@ -7,8 +7,8 @@ set -e
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-FAUST_MCP_DIR="$SCRIPT_DIR/tools/faust-mcp"
-ASSISTANT_DIR="$SCRIPT_DIR/multi-model-AI-development-assistant"
+ASSISTANT_DIR="$SCRIPT_DIR"
+FAUST_MCP_DIR="$SCRIPT_DIR/../tools/faust-mcp"
 FAUST_MCP_PORT=8765
 FAUST_REALTIME_PORT=8000
 FAUST_UI_PORT=8787

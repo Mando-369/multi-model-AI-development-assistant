@@ -212,6 +212,71 @@ class FaustRealtimeClient:
         except Exception as e:
             return FaustRealtimeResult(success=False, error=str(e))
 
+    async def check_syntax_async(
+        self,
+        faust_code: str,
+        name: str = "faust-check"
+    ) -> FaustRealtimeResult:
+        """
+        Check FAUST code syntax without starting audio.
+
+        Args:
+            faust_code: The FAUST DSP source code
+            name: Optional name for the check
+
+        Returns:
+            FaustRealtimeResult with success status and params if valid
+        """
+        if not MCP_AVAILABLE:
+            return FaustRealtimeResult(
+                success=False,
+                error="MCP library not installed. Run: pip install mcp"
+            )
+
+        try:
+            async with sse_client(self.server_url) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+
+                    result = await session.call_tool(
+                        "check_syntax",
+                        {
+                            "faust_code": faust_code,
+                            "name": name
+                        }
+                    )
+
+                    # Parse result
+                    if hasattr(result, 'content') and result.content:
+                        text = result.content[0].text
+                        if text.startswith("Error") or "error" in text.lower():
+                            return FaustRealtimeResult(success=False, error=text)
+
+                        try:
+                            data = json.loads(text)
+                            return FaustRealtimeResult(
+                                success=True,
+                                message=data.get("message", "Syntax OK"),
+                                params=data.get("params", [])
+                            )
+                        except json.JSONDecodeError:
+                            # Plain text response
+                            return FaustRealtimeResult(
+                                success=True,
+                                message=text
+                            )
+
+                    return FaustRealtimeResult(
+                        success=False,
+                        error="Empty response from server"
+                    )
+
+        except Exception as e:
+            error_msg = str(e)
+            if "Connection refused" in error_msg:
+                error_msg = "Cannot connect to realtime server. Is it running on port 8000?"
+            return FaustRealtimeResult(success=False, error=error_msg)
+
 
 # Synchronous wrappers
 
@@ -291,6 +356,35 @@ def set_faust_param(
         return await client.set_param_async(path, value)
 
     return anyio.run(_set)
+
+
+def check_faust_syntax_realtime(
+    faust_code: str,
+    server_url: str = "http://127.0.0.1:8000/sse",
+    name: str = "faust-check"
+) -> FaustRealtimeResult:
+    """
+    Check FAUST code syntax via realtime server (no local faust needed).
+
+    Args:
+        faust_code: FAUST DSP source code
+        server_url: Realtime server URL
+        name: Check name
+
+    Returns:
+        FaustRealtimeResult with success status and params if valid
+    """
+    if not ANYIO_AVAILABLE:
+        return FaustRealtimeResult(
+            success=False,
+            error="anyio library not installed. Run: pip install anyio"
+        )
+
+    async def _check():
+        client = FaustRealtimeClient(server_url)
+        return await client.check_syntax_async(faust_code, name)
+
+    return anyio.run(_check)
 
 
 def check_realtime_server(server_url: str = "http://127.0.0.1:8000/sse") -> bool:
