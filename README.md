@@ -70,6 +70,39 @@ The assistant includes deep FAUST integration via [faust-mcp](https://github.com
 
 When a DSP is running, click the link to open the **Parameter UI** at http://localhost:8787 for real-time slider control.
 
+### Test Input for Effects
+
+Effects (DSPs with audio inputs) need test signals. The **Test Input** panel provides:
+
+| Input Source | Description |
+|--------------|-------------|
+| **none** | No input - for generators (oscillators, synths) |
+| **sine** | Sine wave with configurable frequency |
+| **noise** | White noise |
+| **file** | Audio file (local or URL) |
+
+A safety check warns when running effects with "none" selected.
+
+#### File Input Options
+
+**Local File (recommended):**
+- Select "Local File" mode
+- Drag & drop audio file (wav, mp3, ogg, flac, aiff)
+- Works immediately, no setup needed
+
+**HTTP URL (advanced):**
+- Select "HTTP URL" mode
+- Enter URL like `http://localhost:8080/myfile.wav`
+- Requires running an HTTP server to serve files:
+  ```bash
+  # Start server in folder with audio files
+  cd /path/to/audio/files
+  python -m http.server 8080
+
+  # Now files are available at http://localhost:8080/filename.wav
+  ```
+- Useful for remote files or integration with other systems
+
 **Note**: Syntax checking uses the realtime server's WASM compiler by default. Local Faust CLI is only used as fallback when the realtime server isn't running.
 
 ---

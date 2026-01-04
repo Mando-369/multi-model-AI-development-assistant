@@ -231,33 +231,40 @@ fi
 
 # Summary
 echo ""
+BOX_WIDTH=60
+print_box_line() {
+    local color="$1"
+    local text="$2"
+    printf "${color}║  %-${BOX_WIDTH}s║${NC}\n" "$text"
+}
+
 if [ "$FAUST_MCP_RUNNING" = true ] && [ "$FAUST_REALTIME_RUNNING" = true ]; then
     echo -e "${GREEN}╔══════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${GREEN}║                     All Services Started                     ║${NC}"
     echo -e "${GREEN}╠══════════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${GREEN}║  Streamlit App:       http://localhost:$STREAMLIT_PORT                    ║${NC}"
-    echo -e "${GREEN}║  FAUST Analysis:      http://localhost:$FAUST_MCP_PORT/sse (offline)       ║${NC}"
-    echo -e "${GREEN}║  FAUST Realtime:      http://localhost:$FAUST_REALTIME_PORT/sse (live audio)    ║${NC}"
-    echo -e "${GREEN}║  FAUST UI:            http://localhost:$FAUST_UI_PORT/ (param sliders)    ║${NC}"
-    echo -e "${GREEN}║  Ollama API:          http://localhost:11434                  ║${NC}"
+    print_box_line "${GREEN}" "Streamlit App:    http://localhost:$STREAMLIT_PORT"
+    print_box_line "${GREEN}" "FAUST Analysis:   http://localhost:$FAUST_MCP_PORT/sse (offline)"
+    print_box_line "${GREEN}" "FAUST Realtime:   http://localhost:$FAUST_REALTIME_PORT/sse (live audio)"
+    print_box_line "${GREEN}" "FAUST UI:         http://localhost:$FAUST_UI_PORT/ (param sliders)"
+    print_box_line "${GREEN}" "Ollama API:       http://localhost:11434"
     echo -e "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
 elif [ "$FAUST_MCP_RUNNING" = true ]; then
     echo -e "${YELLOW}╔══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${YELLOW}║               Services Started (realtime unavailable)        ║${NC}"
+    echo -e "${YELLOW}║            Services Started (realtime unavailable)           ║${NC}"
     echo -e "${YELLOW}╠══════════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${GREEN}║  Streamlit App:       http://localhost:$STREAMLIT_PORT                    ║${NC}"
-    echo -e "${GREEN}║  FAUST Analysis:      http://localhost:$FAUST_MCP_PORT/sse                 ║${NC}"
-    echo -e "${YELLOW}║  FAUST Realtime:      NOT RUNNING (see setup instructions)   ║${NC}"
-    echo -e "${GREEN}║  Ollama API:          http://localhost:11434                  ║${NC}"
+    print_box_line "${GREEN}" "Streamlit App:    http://localhost:$STREAMLIT_PORT"
+    print_box_line "${GREEN}" "FAUST Analysis:   http://localhost:$FAUST_MCP_PORT/sse"
+    print_box_line "${YELLOW}" "FAUST Realtime:   NOT RUNNING (see setup instructions)"
+    print_box_line "${GREEN}" "Ollama API:       http://localhost:11434"
     echo -e "${YELLOW}╚══════════════════════════════════════════════════════════════╝${NC}"
 else
     echo -e "${YELLOW}╔══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${YELLOW}║                Services Started (with warnings)              ║${NC}"
+    echo -e "${YELLOW}║               Services Started (with warnings)               ║${NC}"
     echo -e "${YELLOW}╠══════════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${GREEN}║  Streamlit App:       http://localhost:$STREAMLIT_PORT                    ║${NC}"
-    echo -e "${YELLOW}║  FAUST Analysis:      FAILED (check server.log)              ║${NC}"
-    echo -e "${YELLOW}║  FAUST Realtime:      NOT RUNNING                            ║${NC}"
-    echo -e "${GREEN}║  Ollama API:          http://localhost:11434                  ║${NC}"
+    print_box_line "${GREEN}" "Streamlit App:    http://localhost:$STREAMLIT_PORT"
+    print_box_line "${YELLOW}" "FAUST Analysis:   FAILED (check server.log)"
+    print_box_line "${YELLOW}" "FAUST Realtime:   NOT RUNNING"
+    print_box_line "${GREEN}" "Ollama API:       http://localhost:11434"
     echo -e "${YELLOW}╚══════════════════════════════════════════════════════════════╝${NC}"
 fi
 echo ""

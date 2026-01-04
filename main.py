@@ -197,12 +197,13 @@ def render_code_editor_tab(selected_project: str):
     else:
         base_project_path = str(Path("./projects") / selected_project)
 
-    # Restore browse folder from URL if not in session state
-    if "current_browse_folder" not in st.session_state:
-        browse_folder_url = st.query_params.get("browse", "")
-        if browse_folder_url:
-            browse_folder = urllib.parse.unquote(browse_folder_url)
-            if Path(browse_folder).exists() and Path(browse_folder).is_dir():
+    # Always check URL param and sync with session state
+    browse_folder_url = st.query_params.get("browse", "")
+    if browse_folder_url:
+        browse_folder = urllib.parse.unquote(browse_folder_url)
+        if Path(browse_folder).exists() and Path(browse_folder).is_dir():
+            # URL has valid folder - always use it (URL is source of truth)
+            if st.session_state.get("current_browse_folder") != browse_folder:
                 st.session_state.current_browse_folder = browse_folder
 
     if "current_browse_folder" in st.session_state:

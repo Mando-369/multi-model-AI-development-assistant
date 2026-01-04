@@ -52,7 +52,10 @@ class FaustRealtimeClient:
         self,
         faust_code: str,
         name: str = "dsp",
-        latency_hint: str = "interactive"
+        latency_hint: str = "interactive",
+        input_source: str = "none",
+        input_freq: Optional[float] = None,
+        input_file: Optional[str] = None
     ) -> FaustRealtimeResult:
         """
         Compile FAUST code and start real-time playback.
@@ -61,6 +64,9 @@ class FaustRealtimeClient:
             faust_code: The FAUST DSP source code
             name: Optional name for the DSP
             latency_hint: Latency hint ('interactive', 'balanced', 'playback')
+            input_source: Test input for effects: 'none', 'sine', 'noise', 'file'
+            input_freq: Frequency for sine input (default 1000 Hz)
+            input_file: Path to audio file for 'file' input source
 
         Returns:
             FaustRealtimeResult with success status and params
@@ -76,13 +82,21 @@ class FaustRealtimeClient:
                 async with ClientSession(read, write) as session:
                     await session.initialize()
 
+                    # Build params dict
+                    params = {
+                        "faust_code": faust_code,
+                        "name": name,
+                        "latency_hint": latency_hint,
+                        "input_source": input_source,
+                    }
+                    if input_freq is not None:
+                        params["input_freq"] = input_freq
+                    if input_file is not None:
+                        params["input_file"] = input_file
+
                     result = await session.call_tool(
                         "compile_and_start",
-                        {
-                            "faust_code": faust_code,
-                            "name": name,
-                            "latency_hint": latency_hint
-                        }
+                        params
                     )
 
                     # Parse result
@@ -283,7 +297,10 @@ class FaustRealtimeClient:
 def run_faust(
     faust_code: str,
     server_url: str = "http://127.0.0.1:8000/sse",
-    name: str = "dsp"
+    name: str = "dsp",
+    input_source: str = "none",
+    input_freq: Optional[float] = None,
+    input_file: Optional[str] = None
 ) -> FaustRealtimeResult:
     """
     Compile and start FAUST code in real-time.
@@ -292,6 +309,9 @@ def run_faust(
         faust_code: FAUST DSP source code
         server_url: Realtime server URL
         name: DSP name
+        input_source: Test input for effects: 'none', 'sine', 'noise', 'file'
+        input_freq: Frequency for sine input (default 1000 Hz)
+        input_file: Path to audio file for 'file' input source
 
     Returns:
         FaustRealtimeResult with success status
@@ -304,7 +324,12 @@ def run_faust(
 
     async def _run():
         client = FaustRealtimeClient(server_url)
-        return await client.compile_and_start_async(faust_code, name)
+        return await client.compile_and_start_async(
+            faust_code, name,
+            input_source=input_source,
+            input_freq=input_freq,
+            input_file=input_file
+        )
 
     return anyio.run(_run)
 

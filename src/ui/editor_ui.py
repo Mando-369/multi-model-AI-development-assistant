@@ -750,6 +750,93 @@ Please provide the complete modified file content. Only return the code/content,
         if st.session_state.faust_realtime.get("running", False):
             st.success("🔊 DSP Running - [Open Parameter UI](http://127.0.0.1:8787/)")
 
+        # Input source controls for FAUST files (for testing effects)
+        # Always show and keep expanded to preserve file_uploader state
+        if is_faust_file:
+            is_running = st.session_state.faust_realtime.get("running", False)
+            expander_label = "🔊 Test Input (for effects)" + (" - DSP Running" if is_running else "")
+            with st.expander(expander_label, expanded=True):
+                # Preserve input source selection across reruns
+                source_key = f"faust_input_source_persist_{filename}"
+                if source_key not in st.session_state:
+                    st.session_state[source_key] = "none"
+
+                options = ["none", "sine", "noise", "file"]
+                current_idx = options.index(st.session_state[source_key]) if st.session_state[source_key] in options else 0
+
+                col_src, col_opt = st.columns([1, 2])
+                with col_src:
+                    input_source = st.selectbox(
+                        "Input Source",
+                        options=options,
+                        index=current_idx,
+                        key=f"faust_input_source_{filename}",
+                        help="Test signal for effects (DSPs with inputs)"
+                    )
+                    # Persist selection
+                    st.session_state[source_key] = input_source
+
+                with col_opt:
+                    if input_source == "sine":
+                        input_freq = st.number_input(
+                            "Frequency (Hz)",
+                            min_value=20,
+                            max_value=20000,
+                            value=1000,
+                            step=100,
+                            key=f"faust_input_freq_{filename}"
+                        )
+                    elif input_source == "file":
+                        # Toggle between local file and URL
+                        file_mode = st.radio(
+                            "Source",
+                            ["Local File", "HTTP URL"],
+                            key=f"faust_file_mode_{filename}",
+                            horizontal=True
+                        )
+
+                        if file_mode == "Local File":
+                            uploaded_file = st.file_uploader(
+                                "Audio File",
+                                type=["wav", "mp3", "ogg", "flac", "aiff"],
+                                key=f"faust_input_file_{filename}",
+                                help="Drag & drop an audio file here"
+                            )
+                            if uploaded_file:
+                                # Save to temp file for FAUST to access
+                                import tempfile
+                                import os
+                                temp_dir = tempfile.gettempdir()
+                                temp_path = os.path.join(temp_dir, f"faust_input_{uploaded_file.name}")
+                                with open(temp_path, "wb") as f:
+                                    f.write(uploaded_file.getbuffer())
+                                st.caption(f"📁 {uploaded_file.name}")
+                                st.session_state[f"faust_input_file_path_{filename}"] = temp_path
+                        else:
+                            # HTTP URL input
+                            url_input = st.text_input(
+                                "Audio URL",
+                                placeholder="http://localhost:8080/myfile.wav",
+                                key=f"faust_input_url_{filename}",
+                                help="HTTP/HTTPS URL to audio file"
+                            )
+                            if url_input:
+                                st.session_state[f"faust_input_file_path_{filename}"] = url_input
+                    else:
+                        st.caption("No options for this source")
+
+                # Store in session state for use by run_faust_realtime
+                if "faust_input_settings" not in st.session_state:
+                    st.session_state.faust_input_settings = {}
+
+                settings = {"source": input_source, "freq": None, "file": None}
+                if input_source == "sine":
+                    settings["freq"] = st.session_state.get(f"faust_input_freq_{filename}", 1000)
+                elif input_source == "file":
+                    settings["file"] = st.session_state.get(f"faust_input_file_path_{filename}", "")
+
+                st.session_state.faust_input_settings[file_path] = settings
+
         # Handle FAUST actions OUTSIDE columns for full-width display
         if is_faust_file:
             if syntax_check_triggered:
@@ -831,6 +918,40 @@ Please provide the complete modified file content. Only return the code/content,
                     st.error("**✗ Syntax Error**")
                     st.code(result["errors"], language="text")
 
+    def _detect_faust_has_inputs(self, faust_code: str) -> bool:
+        """Detect if FAUST code expects audio inputs (is an effect vs generator)."""
+        # Look for input indicators:
+        # - Underscore `_` in process definition (explicit input)
+        # - Common effect patterns that take input
+        # - fi.*, ef.*, aa.* library functions that process input
+
+        import re
+
+        # Remove comments
+        code = re.sub(r'//.*$', '', faust_code, flags=re.MULTILINE)
+        code = re.sub(r'/\*.*?\*/', '', code, flags=re.DOTALL)
+
+        # Check for underscore input in process
+        # Patterns: `process = _ ...`, `process = something(_)`, `_ : something`
+        if re.search(r'process\s*=\s*[^;]*_', code):
+            return True
+
+        # Check for common effect library prefixes that need input
+        effect_patterns = [
+            r'\bfi\.\w+',  # filters (fi.lowpass, fi.highpass, etc.)
+            r'\bef\.\w+',  # effects (ef.echo, ef.flanger, etc.)
+            r'\baa\.\w+',  # analyzers
+            r'\bve\.\w+',  # virtual analog effects
+            r'\bco\.\w+',  # compressors
+            r'\bde\.\w+',  # delays
+            r'\bre\.\w+',  # reverbs (re.mono_freeverb, etc.)
+        ]
+        for pattern in effect_patterns:
+            if re.search(pattern, code):
+                return True
+
+        return False
+
     def run_faust_realtime(self, file_path: str, file_data: dict):
         """Compile and start FAUST code in realtime"""
         from src.core.faust_realtime_client import run_faust, check_realtime_server
@@ -848,13 +969,32 @@ Please provide the complete modified file content. Only return the code/content,
             st.info("Start with: `WEBAUDIO_ROOT=... MCP_TRANSPORT=sse MCP_PORT=8000 python3 faust_realtime_server.py`")
             return
 
+        # Get input source settings
+        input_settings = st.session_state.get("faust_input_settings", {}).get(file_path, {})
+        input_source = input_settings.get("source", "none")
+        input_freq = input_settings.get("freq")
+        input_file = input_settings.get("file")
+
+        # Safety check: warn if DSP has inputs but no input source selected
+        has_inputs = self._detect_faust_has_inputs(faust_code)
+        if has_inputs and input_source == "none":
+            st.warning("⚠️ **Effect detected** - This DSP expects audio input but 'none' is selected.")
+            st.info("Select a test input (sine, noise, or file) in the 'Test Input' expander above, then click Run again.")
+            return
+
         with st.spinner("Compiling and starting DSP..."):
-            result = run_faust(faust_code)
+            result = run_faust(
+                faust_code,
+                input_source=input_source,
+                input_freq=input_freq,
+                input_file=input_file
+            )
 
             if result.success:
                 st.session_state.faust_realtime["running"] = True
                 st.session_state.faust_realtime["current_file"] = file_path
-                st.success(f"▶️ DSP Started: {result.message}")
+                input_info = f" (input: {input_source})" if input_source != "none" else ""
+                st.success(f"▶️ DSP Started{input_info}: {result.message}")
                 st.rerun()
             else:
                 st.error(f"Failed to start: {result.error}")
@@ -964,19 +1104,25 @@ Please provide the complete modified file content. Only return the code/content,
         if "editor_open_files" not in st.session_state:
             st.session_state.editor_open_files = {}
 
-        # Restore file from URL if not already open (only once per session)
+        # Sync URL with open files (ensure URL always reflects current state)
+        open_files = list(st.session_state.editor_open_files.keys())
+        current_url_file = st.query_params.get("file", "")
+        if open_files:
+            first_file = str(Path(open_files[0]).resolve())
+            if current_url_file != first_file:
+                st.query_params["file"] = first_file
+        elif current_url_file:
+            # No files open but URL has one - will be restored below
+            pass
+
+        # Restore file from URL if not already open (URL is source of truth)
         file_param = st.query_params.get("file", "")
         if file_param:
             file_path = urllib.parse.unquote(file_param)
             file_path = str(Path(file_path).resolve())  # Normalize to absolute path
 
-            # Track which files we've already restored this session
-            if "editor_restored_files" not in st.session_state:
-                st.session_state.editor_restored_files = set()
-
-            # Only restore if not already in open files AND not already restored this session
-            if (file_path not in st.session_state.editor_open_files and
-                file_path not in st.session_state.editor_restored_files):
+            # Restore if not already in open files
+            if file_path not in st.session_state.editor_open_files:
                 path = Path(file_path)
                 if path.exists() and path.is_file():
                     try:
@@ -990,7 +1136,6 @@ Please provide the complete modified file content. Only return the code/content,
                             "ai_suggested_content": None,
                             "is_binary": False,
                         }
-                        st.session_state.editor_restored_files.add(file_path)
                         st.toast(f"Restored: {path.name}", icon="📂")
 
                         # Auto-expand folder containing this file in browser
