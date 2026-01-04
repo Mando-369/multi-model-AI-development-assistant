@@ -118,7 +118,7 @@ class EditorUI:
 
         return language_map.get(ext, "text")
 
-    def get_code_language_for_display(self, content: str, file_path: str = None) -> str:
+    def get_code_language_for_display(self, content: str, file_path: Optional[str] = None) -> str:
         """Get appropriate language for st.code() based on content or file extension"""
         if file_path:
             ext = Path(file_path).suffix.lower()
@@ -223,8 +223,10 @@ class EditorUI:
             content_to_display = str(content_to_display)
 
         # Create unique editor key that includes file path hash for uniqueness
+        # Include version number to force refresh when AI changes are applied
         file_hash = hashlib.md5(file_path.encode()).hexdigest()[:8]
-        editor_key = f"ace_{file_hash}_{Path(file_path).stem}"
+        editor_version = st.session_state.get(f"editor_version_{file_hash}", 0)
+        editor_key = f"ace_{file_hash}_{Path(file_path).stem}_v{editor_version}"
 
         st.subheader("📝 Code Editor")
 
@@ -258,10 +260,11 @@ class EditorUI:
             )
 
             # Update content if changed (comparing against editor value, not file data)
+            # Don't call st.rerun() here - it causes scroll-to-bottom issues
             if editor_content is not None and editor_content != "":
                 # Check if content differs from what we passed to st_ace
                 if editor_content != st.session_state[editor_value_key]:
-                    # User made edits - update session state
+                    # User made edits - update session state (no rerun needed)
                     st.session_state[editor_value_key] = editor_content
                     st.session_state.editor_open_files[file_path][
                         "current_content"
@@ -269,8 +272,6 @@ class EditorUI:
                     st.session_state.editor_open_files[file_path][
                         "has_unsaved_changes"
                     ] = True
-                    # Rerun to show updated content in editor
-                    st.rerun()
 
         except Exception as e:
             st.error(f"Editor error: {e}")
@@ -298,10 +299,16 @@ class EditorUI:
 
     def render_ai_integration(self, file_path: str, project_name: str):
         """Render AI integration controls"""
+        # Normalize path first for consistent hashing
+        file_path = str(Path(file_path).resolve())
+
         st.subheader("🤖 AI Assistant")
 
         # Create unique key prefix for this file
         file_key = Path(file_path).name.replace(".", "_")
+        file_hash = hashlib.md5(file_path.encode()).hexdigest()[:8]
+        pending_key = f"pending_ai_changes_{file_hash}"
+        pending_response_key = f"pending_ai_response_{file_hash}"
 
         col1, col2 = st.columns([2, 1])
 
@@ -353,15 +360,101 @@ class EditorUI:
                 help="Include other project files and documentation",
             )
 
+            # Set up streaming trigger key
+            streaming_key = f"streaming_ai_{file_hash}"
+
             if st.button("🚀 Apply AI", key=f"ai_apply_{file_key}"):
-                if ai_prompt.strip() and selected_model:
-                    self.apply_ai_to_file(
-                        file_path, ai_prompt, selected_model, use_context, project_name, selected_agent
-                    )
-                elif not ai_prompt.strip():
+                prompt_text = ai_prompt or ""
+                if prompt_text.strip() and selected_model:
+                    # Clear any previous pending changes
+                    if pending_key in st.session_state:
+                        del st.session_state[pending_key]
+                    if pending_response_key in st.session_state:
+                        del st.session_state[pending_response_key]
+                    # Set streaming trigger (will be handled OUTSIDE columns)
+                    st.session_state[streaming_key] = {
+                        "prompt": prompt_text,
+                        "model": selected_model,
+                        "use_context": use_context,
+                        "project_name": project_name,
+                        "agent_mode": selected_agent,
+                    }
+                    st.rerun()
+                elif not prompt_text.strip():
                     st.warning("Please enter a prompt for the AI")
                 else:
                     st.error("Please select a model")
+
+        # Handle streaming OUTSIDE columns for full width
+        streaming_key = f"streaming_ai_{file_hash}"
+        if streaming_key in st.session_state:
+            params = st.session_state[streaming_key]
+            del st.session_state[streaming_key]  # Clear trigger
+            self.apply_ai_to_file(
+                file_path,
+                params["prompt"],
+                params["model"],
+                params["use_context"],
+                params["project_name"],
+                params["agent_mode"],
+            )
+
+        # Show pending changes confirmation (OUTSIDE columns for full width)
+        if pending_key in st.session_state:
+            file_data = st.session_state.editor_open_files.get(file_path, {})
+            ai_content = st.session_state[pending_key]
+            original_content = file_data.get("current_content", "")
+
+            st.markdown("---")
+            st.markdown("### 📝 Pending AI Changes")
+
+            # Show the full response if available
+            if pending_response_key in st.session_state:
+                with st.expander("💭 AI Response", expanded=False):
+                    st.markdown(st.session_state[pending_response_key])
+
+            # Generate and show diff
+            diff_data = self.file_editor.generate_detailed_diff(original_content, ai_content)
+            summary = diff_data.get("summary", {})
+
+            # Show change summary
+            total_changes = summary.get("total_changes", 0)
+            if total_changes == 0:
+                st.warning("⚠️ No changes detected. The AI returned identical content.")
+            else:
+                col_add, col_rem, col_mod, col_total = st.columns(4)
+                with col_add:
+                    st.metric("➕ Added", summary.get("lines_added", 0))
+                with col_rem:
+                    st.metric("➖ Removed", summary.get("lines_removed", 0))
+                with col_mod:
+                    st.metric("✏️ Modified", summary.get("lines_modified", 0))
+                with col_total:
+                    st.metric("📊 Total", total_changes)
+
+                # Show unified diff with syntax highlighting
+                st.markdown("#### Changes (unified diff)")
+                unified_diff = "\n".join(diff_data.get("unified_diff", []))
+                if unified_diff.strip():
+                    st.code(unified_diff, language="diff")
+                else:
+                    st.info("No line-level changes detected.")
+
+            # Show full proposed content in expander
+            with st.expander("📄 Full Proposed Content", expanded=False):
+                st.code(ai_content, language=file_data.get("language", "text"))
+
+            col_apply, col_discard = st.columns(2)
+            with col_apply:
+                if st.button("✅ Apply Changes", key=f"apply_pending_{file_hash}", type="primary"):
+                    self._apply_pending_changes(file_path, ai_content)
+            with col_discard:
+                if st.button("❌ Discard", key=f"discard_pending_{file_hash}"):
+                    del st.session_state[pending_key]
+                    if pending_response_key in st.session_state:
+                        del st.session_state[pending_response_key]
+                    st.info("Changes discarded")
+                    st.rerun()
 
     def is_analysis_task(self, prompt: str) -> bool:
         """Detect if the task is analysis/explanation (vs code modification)."""
@@ -383,15 +476,18 @@ class EditorUI:
         project_name: str,
         agent_mode: str = "General",
     ):
-        """Apply AI assistance to file content"""
-        file_path = str(file_path)
+        """Apply AI assistance to file content with streaming display"""
+        # Normalize path for consistent hashing
+        file_path = str(Path(file_path).resolve())
         file_data = st.session_state.editor_open_files[file_path]
+        file_hash = hashlib.md5(file_path.encode()).hexdigest()[:8]
+        pending_key = f"pending_ai_changes_{file_hash}"
+        pending_response_key = f"pending_ai_response_{file_hash}"
 
         # Detect if this is an analysis task (summary, explain, etc.) vs modification
         is_analysis = self.is_analysis_task(prompt)
 
         if is_analysis:
-            # Analysis task - ask for explanation, not code
             enhanced_prompt = f"""Please analyze this file: {Path(file_path).name}
 
 File content:
@@ -403,63 +499,152 @@ Task: {prompt}
 
 Provide a clear, helpful response. Focus on explaining and analyzing, not modifying the code.
 """
-            spinner_text = f"🤖 {model_name} is analyzing your file..."
         else:
-            # Modification task - ask for code changes
-            enhanced_prompt = f"""Please help me modify this file: {Path(file_path).name}
+            enhanced_prompt = f"""Modify this file: {Path(file_path).name}
 
-Current file content:
 ```{file_data['language']}
 {file_data['current_content']}
 ```
 
 Task: {prompt}
 
-Please provide the complete modified file content. Only return the code/content, no explanations unless specifically requested.
-"""
-            spinner_text = f"🤖 {model_name} is modifying your file..."
+CRITICAL RULES:
+- Change ONLY the specific lines that need fixing
+- Keep ALL other lines EXACTLY as they are (same whitespace, same formatting)
+- Do NOT reformat, reorganize, or "improve" unchanged code
+- Copy unchanged lines character-for-character
+- Return the complete file with minimal surgical changes
 
-        with st.spinner(spinner_text):
-            try:
-                response = self.multi_glm_system.chat_with_model(
-                    enhanced_prompt, model_name, use_context, project_name, None, agent_mode
+Output the modified file in a code block:
+```{file_data['language']}
+"""
+
+        try:
+            # Show streaming response header (full width)
+            st.markdown("---")
+
+            # Status section for showing retrieval progress
+            status_container = st.container()
+            with status_container:
+                st.markdown("#### 🔄 Context Loading")
+                status_placeholder = st.empty()
+
+            # Response section
+            st.markdown(f"### 💭 {model_name} Response")
+            response_placeholder = st.empty()
+
+            full_response = ""
+            status_lines = []
+            stream_started = False
+
+            # Stream tokens and display in real-time
+            for chunk in self.multi_glm_system.stream_chat_response(
+                enhanced_prompt, model_name, use_context, project_name, agent_mode
+            ):
+                if chunk.startswith("[STATUS]"):
+                    # Status update - show in status section
+                    status_msg = chunk[8:]  # Remove [STATUS] prefix
+                    status_lines.append(status_msg)
+                    # Show last 6 status lines
+                    status_display = "\n".join([f"- {line}" for line in status_lines[-6:]])
+                    status_placeholder.markdown(status_display)
+                elif chunk == "[STREAM_START]":
+                    # Mark transition to actual response
+                    stream_started = True
+                    status_lines.append("✅ Context ready, streaming...")
+                    status_display = "\n".join([f"- {line}" for line in status_lines[-6:]])
+                    status_placeholder.markdown(status_display)
+                else:
+                    # Actual response content
+                    full_response += chunk
+                    display_text = self._format_thinking_display(full_response)
+                    response_placeholder.markdown(display_text)
+
+            st.success("✅ Generation complete!")
+
+            if is_analysis:
+                # For analysis tasks, response is already displayed
+                pass
+            else:
+                # For modification tasks, extract code and store in session state
+                ai_content = self.extract_code_from_response(
+                    full_response, file_data["language"]
                 )
 
-                if is_analysis:
-                    # For analysis tasks, just display the response
-                    st.success("✅ Analysis complete!")
-                    st.markdown("### 📝 AI Analysis")
-                    st.markdown(response)
-                else:
-                    # For modification tasks, extract code and apply changes
-                    ai_content = self.extract_code_from_response(
-                        response, file_data["language"]
-                    )
+                # Store pending changes in session state (will be shown by render_ai_integration)
+                st.session_state[pending_key] = ai_content
+                st.session_state[pending_response_key] = self._format_thinking_display(full_response)
 
-                    result = self.file_editor.apply_ai_suggestion(file_path, ai_content)
+                # Rerun to show the persistent Apply/Discard buttons
+                st.rerun()
 
-                    if result.get("success"):
-                        st.session_state.editor_open_files[file_path][
-                            "ai_suggested_content"
-                        ] = ai_content
-                        st.session_state.editor_open_files[file_path][
-                            "has_ai_suggestions"
-                        ] = True
-                        # Clear editor value to show AI suggestions
-                        file_hash = hashlib.md5(file_path.encode()).hexdigest()[:8]
-                        editor_value_key = f"editor_value_{file_hash}"
-                        if editor_value_key in st.session_state:
-                            del st.session_state[editor_value_key]
+        except Exception as e:
+            st.error(f"Error applying AI: {e}")
 
-                        st.success(
-                            f"✅ AI suggestions applied! {result['changes_count']} changes detected."
-                        )
-                        st.rerun()
-                    else:
-                        st.error(result.get("error", "Failed to apply AI suggestions"))
+    def _format_thinking_display(self, text: str) -> str:
+        """Format response showing thinking tags nicely"""
+        # Replace <think> tags with styled quote block
+        formatted = text.replace("<think>", "\n> 💭 **Thinking:**\n> ")
+        formatted = formatted.replace("</think>", "\n\n---\n**Answer:**\n")
+        # Also handle newlines within thinking block for proper quote formatting
+        lines = formatted.split("\n")
+        in_thinking = False
+        result = []
+        for line in lines:
+            if "> 💭 **Thinking:**" in line:
+                in_thinking = True
+            elif "---" in line and in_thinking:
+                in_thinking = False
+            elif in_thinking and line and not line.startswith(">"):
+                line = "> " + line
+            result.append(line)
+        return "\n".join(result)
 
-            except Exception as e:
-                st.error(f"Error applying AI: {e}")
+    def _apply_pending_changes(self, file_path: str, ai_content: str):
+        """Apply the pending AI changes directly to the editor content"""
+        # SAFETY: Never apply empty content
+        if not ai_content or not ai_content.strip():
+            st.error("❌ Cannot apply empty content. AI returned no valid code.")
+            return
+
+        # Normalize path to match how files are stored
+        file_path = str(Path(file_path).resolve())
+        file_hash = hashlib.md5(file_path.encode()).hexdigest()[:8]
+
+        # Directly apply changes to current_content (mark as unsaved, not as "AI suggestion")
+        if file_path in st.session_state.editor_open_files:
+            # Update current content with AI changes
+            st.session_state.editor_open_files[file_path]["current_content"] = ai_content
+            st.session_state.editor_open_files[file_path]["has_unsaved_changes"] = True
+            # Clear any suggestion state (we're applying directly)
+            st.session_state.editor_open_files[file_path]["has_ai_suggestions"] = False
+            st.session_state.editor_open_files[file_path]["ai_suggested_content"] = None
+
+            # Force editor refresh by incrementing version (changes the key, recreates component)
+            version_key = f"editor_version_{file_hash}"
+            st.session_state[version_key] = st.session_state.get(version_key, 0) + 1
+
+            # Set editor value to new content (don't delete - that causes issues)
+            editor_value_key = f"editor_value_{file_hash}"
+            st.session_state[editor_value_key] = ai_content
+
+            # Also update file_editor state if it exists
+            if file_path in self.file_editor.file_states:
+                self.file_editor.file_states[file_path]["current_content"] = ai_content
+                self.file_editor.file_states[file_path]["has_changes"] = True
+
+            # Clean up pending keys
+            pending_key = f"pending_ai_changes_{file_hash}"
+            pending_response_key = f"pending_ai_response_{file_hash}"
+            if pending_key in st.session_state:
+                del st.session_state[pending_key]
+            if pending_response_key in st.session_state:
+                del st.session_state[pending_response_key]
+
+            st.success("✅ Changes applied to editor! Click 💾 Save to write to disk.")
+            st.rerun()
+        else:
+            st.error("File not found in open files")
 
     def extract_code_from_response(self, response: str, language: str) -> str:
         """Extract code content from AI response, removing markdown formatting"""
@@ -530,7 +715,7 @@ Please provide the complete modified file content. Only return the code/content,
         else:
             self.render_changed_sections(diff_data, file_path)
 
-    def render_side_by_side_diff(self, diff_data: Dict, file_path: str = None):
+    def render_side_by_side_diff(self, diff_data: Dict, file_path: Optional[str] = None):
         """Render side-by-side diff comparison"""
         col1, col2 = st.columns(2)
 
@@ -551,7 +736,7 @@ Please provide the complete modified file content. Only return the code/content,
         unified_diff = "\n".join(diff_data["unified_diff"])
         st.code(unified_diff, language="diff")
 
-    def render_changed_sections(self, diff_data: Dict, file_path: str = None):
+    def render_changed_sections(self, diff_data: Dict, file_path: Optional[str] = None):
         """Render only the sections with changes"""
         for i, section in enumerate(diff_data["changed_sections"]):
             st.write(f"**Change {i+1}: {section['operation'].title()}**")
@@ -623,6 +808,7 @@ Please provide the complete modified file content. Only return the code/content,
         is_faust_file = Path(file_path).suffix.lower() in [".dsp", ".fst", ".lib"]
 
         # Adjust columns based on whether FAUST tools are available
+        col6 = col7 = col8 = None  # Initialize for non-FAUST files
         if is_faust_file:
             col1, col2, col3, col4, col5, col6, col7, col8 = st.columns(8)
         else:
@@ -631,9 +817,17 @@ Please provide the complete modified file content. Only return the code/content,
         with col1:
             # Save file
             if st.button("💾 Save", key=f"save_{filename}"):
-                content_to_save = file_data.get(
-                    "ai_suggested_content", file_data["current_content"]
+                # Get content from editor value (what user sees) first, then current_content
+                file_hash = hashlib.md5(file_path.encode()).hexdigest()[:8]
+                editor_value_key = f"editor_value_{file_hash}"
+                content_to_save = (
+                    st.session_state.get(editor_value_key) or
+                    file_data.get("current_content") or
+                    ""
                 )
+                if not content_to_save.strip():
+                    st.error("❌ Cannot save empty file. Content is missing.")
+                    return
                 result = self.file_editor.save_file_content(file_path, content_to_save)
 
                 if result.get("success"):
@@ -726,6 +920,7 @@ Please provide the complete modified file content. Only return the code/content,
         stop_triggered = False
 
         if is_faust_file:
+            assert col6 is not None and col7 is not None and col8 is not None
             with col6:
                 # Syntax Check (fast, local)
                 if st.button("✓ Syntax", key=f"faust_syntax_{filename}"):
@@ -812,6 +1007,7 @@ Please provide the complete modified file content. Only return the code/content,
                                     f.write(uploaded_file.getbuffer())
                                 st.caption(f"📁 {uploaded_file.name}")
                                 st.session_state[f"faust_input_file_path_{filename}"] = temp_path
+                                st.info("💡 For waveform preview, use HTTP URL mode with a local server")
                         else:
                             # HTTP URL input
                             url_input = st.text_input(
@@ -822,6 +1018,14 @@ Please provide the complete modified file content. Only return the code/content,
                             )
                             if url_input:
                                 st.session_state[f"faust_input_file_path_{filename}"] = url_input
+                                # Show wavesurfer player for HTTP URLs
+                                from src.ui.ui_components import render_wavesurfer_player
+                                st.markdown("##### 🎵 Audio Preview")
+                                render_wavesurfer_player(
+                                    url_input,
+                                    key=f"wavesurfer_{filename}",
+                                    height=180
+                                )
                     else:
                         st.caption("No options for this source")
 
@@ -853,8 +1057,16 @@ Please provide the complete modified file content. Only return the code/content,
         from src.core.faust_mcp_client import analyze_faust_code, check_faust_server
         from src.ui.ui_components import render_faust_analysis
 
-        # Get current content (use AI suggested if available, otherwise current)
-        faust_code = file_data.get("ai_suggested_content") or file_data.get("current_content", "")
+        # Get current content from editor value (most up-to-date) or file_data
+        file_path = str(Path(file_path).resolve())
+        file_hash = hashlib.md5(file_path.encode()).hexdigest()[:8]
+        editor_value_key = f"editor_value_{file_hash}"
+
+        faust_code = (
+            st.session_state.get(editor_value_key) or
+            file_data.get("ai_suggested_content") or
+            file_data.get("current_content", "")
+        )
 
         if not faust_code.strip():
             st.warning("No FAUST code to analyze")
@@ -889,8 +1101,17 @@ Please provide the complete modified file content. Only return the code/content,
         from src.core.faust_realtime_client import check_faust_syntax_realtime, check_realtime_server
         from src.core.faust_mcp_client import check_faust_syntax
 
-        # Get current content (use AI suggested if available)
-        faust_code = file_data.get("ai_suggested_content") or file_data.get("current_content", "")
+        # Get current content from editor value (most up-to-date) or file_data
+        file_path = str(Path(file_path).resolve())
+        file_hash = hashlib.md5(file_path.encode()).hexdigest()[:8]
+        editor_value_key = f"editor_value_{file_hash}"
+
+        # Priority: editor value > AI suggested > current_content
+        faust_code = (
+            st.session_state.get(editor_value_key) or
+            file_data.get("ai_suggested_content") or
+            file_data.get("current_content", "")
+        )
 
         if not faust_code.strip():
             st.warning("No FAUST code to check")
@@ -956,8 +1177,16 @@ Please provide the complete modified file content. Only return the code/content,
         """Compile and start FAUST code in realtime"""
         from src.core.faust_realtime_client import run_faust, check_realtime_server
 
-        # Get current content (use AI suggested if available)
-        faust_code = file_data.get("ai_suggested_content") or file_data.get("current_content", "")
+        # Get current content from editor value (most up-to-date) or file_data
+        file_path = str(Path(file_path).resolve())
+        file_hash = hashlib.md5(file_path.encode()).hexdigest()[:8]
+        editor_value_key = f"editor_value_{file_hash}"
+
+        faust_code = (
+            st.session_state.get(editor_value_key) or
+            file_data.get("ai_suggested_content") or
+            file_data.get("current_content", "")
+        )
 
         if not faust_code.strip():
             st.warning("No FAUST code to run")

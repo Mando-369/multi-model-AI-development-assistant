@@ -18,6 +18,8 @@ try:
     MCP_AVAILABLE = True
 except ImportError:
     MCP_AVAILABLE = False
+    sse_client = None  # type: ignore
+    ClientSession = None  # type: ignore
 
 # Check for anyio
 try:
@@ -25,6 +27,7 @@ try:
     ANYIO_AVAILABLE = True
 except ImportError:
     ANYIO_AVAILABLE = False
+    anyio = None  # type: ignore
 
 
 @dataclass
@@ -110,8 +113,8 @@ class FaustMCPClient:
             )
 
         try:
-            async with sse_client(self.server_url) as (read, write):
-                async with ClientSession(read, write) as session:
+            async with sse_client(self.server_url) as (read, write):  # type: ignore[misc]
+                async with ClientSession(read, write) as session:  # type: ignore[misc]
                     await session.initialize()
 
                     result = await session.call_tool(
@@ -122,7 +125,7 @@ class FaustMCPClient:
                     # Parse the result - always use content[0].text as it contains the JSON
                     data = None
                     if hasattr(result, 'content') and result.content and len(result.content) > 0:
-                        text = result.content[0].text
+                        text = getattr(result.content[0], 'text', '')
                         if text.startswith("Error") or text.startswith("System Error"):
                             return FaustAnalysisResult(status="error", error=text)
                         data = json.loads(text)
@@ -176,7 +179,7 @@ def analyze_faust_code(
         client = FaustMCPClient(server_url)
         return await client.compile_and_analyze_async(faust_code)
 
-    return anyio.run(_run)
+    return anyio.run(_run)  # type: ignore[union-attr]
 
 
 def check_faust_server(server_url: str = "http://127.0.0.1:8765/sse") -> bool:
@@ -190,15 +193,15 @@ def check_faust_server(server_url: str = "http://127.0.0.1:8765/sse") -> bool:
 
     async def _check():
         try:
-            async with sse_client(server_url) as (read, write):
-                async with ClientSession(read, write) as session:
+            async with sse_client(server_url) as (read, write):  # type: ignore[misc]
+                async with ClientSession(read, write) as session:  # type: ignore[misc]
                     await session.initialize()
                     return True
         except Exception:
             return False
 
     try:
-        return anyio.run(_check)
+        return anyio.run(_check)  # type: ignore[union-attr]
     except Exception:
         return False
 

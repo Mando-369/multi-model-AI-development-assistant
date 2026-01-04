@@ -8,7 +8,7 @@ import subprocess
 import json
 from abc import ABC, abstractmethod
 from typing import List, Dict, Optional, Any
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -19,11 +19,7 @@ class ModelInfo:
     size: str
     backend: str
     modified: str = ""
-    details: Dict[str, Any] = None
-
-    def __post_init__(self):
-        if self.details is None:
-            self.details = {}
+    details: Dict[str, Any] = field(default_factory=dict)
 
 
 class ModelBackend(ABC):

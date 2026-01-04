@@ -143,7 +143,7 @@ class MultiModelGLMSystem:
                     elif model_name == self.get_fast_model_name():
                         model_role = "fast"
 
-                    system_prompt = get_system_prompt_for_model(model_name, model_role)
+                    system_prompt = get_system_prompt_for_model(model_name, model_role or "reasoning")
 
                     self._model_instances[model_name] = Ollama(
                         model=model_id,
@@ -159,7 +159,7 @@ class MultiModelGLMSystem:
     def generate_response(
         self,
         prompt: str,
-        selected_model: str = None,
+        selected_model: Optional[str] = None,
         use_context: bool = True,
         project_name: str = "Default",
         chat_history: Optional[List[Tuple[str, str]]] = None,
@@ -502,6 +502,19 @@ Return ONLY the updated context file content, nothing else."""
                     context_parts.append(f"=== LAST EXCHANGE ===\n{last_exchange}")
                     print("✅ Included last exchange for continuity")
 
+                # 5. Query vectorstore using AI-extracted keywords
+                try:
+                    relevant_docs = self._smart_doc_retrieval(question, agent_mode)
+                    if relevant_docs:
+                        doc_context = "\n\n".join([
+                            f"[{doc.metadata.get('source', 'docs')}]\n{doc.page_content[:1000]}"
+                            for doc in relevant_docs
+                        ])
+                        context_parts.append(f"=== RELEVANT DOCUMENTATION ===\n{doc_context}")
+                        print(f"📚 Retrieved {len(relevant_docs)} docs via smart retrieval")
+                except Exception as e:
+                    print(f"⚠️ Smart retrieval failed: {e}")
+
                 # Build the enhanced prompt
                 if context_parts:
                     full_context = "\n\n".join(context_parts)
@@ -555,6 +568,107 @@ Reference the knowledge base information when relevant."""
             print(f"❌ Chat error: {e}")
             return error_msg
 
+    def stream_chat_response(
+        self,
+        question: str,
+        model_name: str,
+        use_context: bool = True,
+        project_name: str = "Default",
+        agent_mode: str = "General",
+    ):
+        """Stream response tokens from model. Yields string chunks.
+
+        This is the streaming version of chat_with_model. Use for real-time
+        display of AI responses.
+
+        Yields special [STATUS] prefixed messages for UI updates before the actual response.
+        """
+        try:
+            llm = self.get_model_instance(model_name)
+            if not llm:
+                yield f"❌ Model {model_name} is not available"
+                return
+
+            # Get agent mode configuration
+            agent_config = AGENT_MODES.get(agent_mode, AGENT_MODES["General"])
+            agent_prompt_addon = agent_config.get("system_prompt_addon", "")
+
+            # Check for meta questions
+            is_meta = is_meta_question(question)
+
+            # Build context (same logic as chat_with_model)
+            enhanced_prompt = question
+            if use_context and not is_meta:
+                context_parts = []
+
+                if agent_prompt_addon:
+                    context_parts.append(f"=== {agent_mode.upper()} SPECIALIST MODE ===\n{agent_prompt_addon}")
+                    yield f"[STATUS]🎯 Using {agent_mode} specialist mode"
+
+                project_meta = self.project_meta_manager.read_project_meta(project_name)
+                if project_meta:
+                    truncated_meta = self.project_meta_manager.truncate_for_context(project_meta, max_chars=2000)
+                    context_parts.append(f"=== PROJECT OVERVIEW ===\n{truncated_meta}")
+                    yield f"[STATUS]📋 Loaded project meta ({len(truncated_meta)} chars)"
+
+                if agent_mode == "Orchestrator":
+                    all_agent_metas = self.project_meta_manager.get_all_agent_metas(project_name)
+                    if all_agent_metas:
+                        combined_metas = "\n\n".join([
+                            f"--- {mode.upper()} AGENT ---\n{content[:800]}{'...' if len(content) > 800 else ''}"
+                            for mode, content in all_agent_metas.items()
+                        ])
+                        context_parts.append(f"=== ALL AGENT CONTEXTS ===\n{combined_metas}")
+                        yield f"[STATUS]🔗 Loaded {len(all_agent_metas)} agent contexts"
+                else:
+                    agent_meta = self.read_agent_meta(project_name, agent_mode)
+                    if agent_meta:
+                        context_parts.append(f"=== {agent_mode.upper()} AGENT CONTEXT ===\n{agent_meta}")
+                        yield f"[STATUS]📝 Loaded {agent_mode} context ({len(agent_meta)} chars)"
+
+                # Query vectorstore using AI-extracted keywords (with status updates)
+                try:
+                    yield "[STATUS]🔍 Extracting search keywords..."
+                    relevant_docs, keywords = self._smart_doc_retrieval_with_status(question, agent_mode)
+                    if keywords:
+                        yield f"[STATUS]🔑 Keywords: {', '.join(keywords)}"
+                    if relevant_docs:
+                        doc_sources = [doc.metadata.get('source', 'docs').split('/')[-1] for doc in relevant_docs]
+                        yield f"[STATUS]📚 Found {len(relevant_docs)} docs: {', '.join(doc_sources[:3])}{'...' if len(doc_sources) > 3 else ''}"
+                        doc_context = "\n\n".join([
+                            f"[{doc.metadata.get('source', 'docs')}]\n{doc.page_content[:1000]}"
+                            for doc in relevant_docs
+                        ])
+                        context_parts.append(f"=== RELEVANT DOCUMENTATION ===\n{doc_context}")
+                    else:
+                        yield "[STATUS]📭 No matching docs found"
+                except Exception as e:
+                    yield f"[STATUS]⚠️ Doc retrieval failed: {str(e)[:50]}"
+                    print(f"⚠️ Smart retrieval failed: {e}")
+
+                if context_parts:
+                    full_context = "\n\n".join(context_parts)
+                    enhanced_prompt = f"""{full_context}
+
+=== CURRENT QUESTION ===
+{question}
+
+=== INSTRUCTIONS ===
+Please provide a detailed and helpful response based on the context above and your knowledge."""
+
+            # Signal start of AI response
+            yield "[STATUS]🤖 Generating response..."
+            yield "[STREAM_START]"
+
+            # Stream response
+            print(f"🔄 Streaming response from {model_name}...")
+            for chunk in llm.stream(enhanced_prompt):
+                yield chunk
+
+        except Exception as e:
+            yield f"❌ Error: {str(e)}"
+            print(f"❌ Stream error: {e}")
+
     def check_vectorstore_status(self):
         """Check if vectorstore has documents and get count (excluding test documents)"""
         try:
@@ -568,7 +682,7 @@ Reference the knowledge base information when relevant."""
             real_doc_count = 0
             test_doc_count = 0
             
-            for meta in all_docs['metadatas']:
+            for meta in (all_docs['metadatas'] or []):
                 if meta.get('is_test_data', False):
                     test_doc_count += 1
                 else:
@@ -741,3 +855,166 @@ Reference the knowledge base information when relevant."""
                 "status": "❌ Not installed",
                 "message": "faust_mcp_client module not available",
             }
+
+    def _smart_doc_retrieval_with_status(self, question: str, agent_mode: str, max_docs: int = 5) -> tuple:
+        """Use fast AI to extract search keywords, then query ChromaDB.
+
+        Returns:
+            Tuple of (documents, keywords) for UI visibility
+        """
+        docs, keywords = [], []
+        try:
+            fast_model = self.get_fast_model_name()
+            llm = self.get_model_instance(fast_model)
+
+            if not llm:
+                docs = self.vectorstore.similarity_search(question, k=max_docs)
+                return docs, ["(direct search)"]
+
+            mode_hints = {
+                "FAUST": "FAUST DSP, signal processing, audio synthesis, filters, oscillators",
+                "JUCE": "JUCE C++, audio plugins, VST, AU, GUI components",
+                "Math": "DSP algorithms, filter design, Fourier transform, z-transform",
+                "Physics": "acoustics, electronics, circuits, wave propagation",
+                "General": "programming, code, development",
+            }
+            domain_hint = mode_hints.get(agent_mode, "programming")
+
+            keyword_prompt = f"""Extract 3-5 precise search keywords from this question for documentation lookup.
+Domain context: {domain_hint}
+
+Question: {question}
+
+Rules:
+- Return ONLY the keywords, one per line
+- Focus on technical terms, function names, concepts
+- No full sentences, just key terms
+- If it's an error message, extract the key identifiers
+
+Keywords:"""
+
+            keyword_response = llm.invoke(keyword_prompt)
+
+            for line in keyword_response.strip().split('\n'):
+                keyword = line.strip().strip('-•*1234567890.').strip()
+                if keyword and len(keyword) > 1 and len(keyword) < 50:
+                    keywords.append(keyword)
+
+            keywords = keywords[:5]
+
+            if not keywords:
+                docs = self.vectorstore.similarity_search(question, k=max_docs)
+                return docs, ["(no keywords, direct search)"]
+
+            all_docs = []
+            seen_content = set()
+
+            for keyword in keywords:
+                try:
+                    found = self.vectorstore.similarity_search(keyword, k=3)
+                    for doc in found:
+                        content_hash = hash(doc.page_content[:200])
+                        if content_hash not in seen_content:
+                            seen_content.add(content_hash)
+                            all_docs.append(doc)
+                except Exception:
+                    continue
+
+            return all_docs[:max_docs], keywords
+
+        except Exception as e:
+            print(f"❌ Smart retrieval error: {e}")
+            try:
+                return self.vectorstore.similarity_search(question, k=max_docs), ["(fallback)"]
+            except:
+                return [], []
+
+    def _smart_doc_retrieval(self, question: str, agent_mode: str, max_docs: int = 5) -> List:
+        """Use fast AI to extract search keywords, then query ChromaDB.
+
+        Args:
+            question: User's question/prompt
+            agent_mode: Current specialist mode for context hints
+            max_docs: Maximum documents to return
+
+        Returns:
+            List of relevant documents (deduplicated)
+        """
+        try:
+            # Get the fast model for keyword extraction
+            fast_model = self.get_fast_model_name()
+            llm = self.get_model_instance(fast_model)
+
+            if not llm:
+                print("⚠️ Fast model not available for keyword extraction, using direct search")
+                return self.vectorstore.similarity_search(question, k=max_docs)
+
+            # Build keyword extraction prompt based on agent mode
+            mode_hints = {
+                "FAUST": "FAUST DSP, signal processing, audio synthesis, filters, oscillators",
+                "JUCE": "JUCE C++, audio plugins, VST, AU, GUI components",
+                "Math": "DSP algorithms, filter design, Fourier transform, z-transform",
+                "Physics": "acoustics, electronics, circuits, wave propagation",
+                "General": "programming, code, development",
+            }
+            domain_hint = mode_hints.get(agent_mode, "programming")
+
+            keyword_prompt = f"""Extract 3-5 precise search keywords from this question for documentation lookup.
+Domain context: {domain_hint}
+
+Question: {question}
+
+Rules:
+- Return ONLY the keywords, one per line
+- Focus on technical terms, function names, concepts
+- No full sentences, just key terms
+- If it's an error message, extract the key identifiers
+
+Keywords:"""
+
+            # Get keywords from fast model
+            keyword_response = llm.invoke(keyword_prompt)
+
+            # Parse keywords (one per line, clean up)
+            keywords = []
+            for line in keyword_response.strip().split('\n'):
+                keyword = line.strip().strip('-•*1234567890.').strip()
+                if keyword and len(keyword) > 1 and len(keyword) < 50:
+                    keywords.append(keyword)
+
+            # Limit to 5 keywords max
+            keywords = keywords[:5]
+
+            if not keywords:
+                print("⚠️ No keywords extracted, using question directly")
+                return self.vectorstore.similarity_search(question, k=max_docs)
+
+            print(f"🔍 Extracted keywords: {keywords}")
+
+            # Query vectorstore with each keyword and collect results
+            all_docs = []
+            seen_content = set()
+
+            for keyword in keywords:
+                try:
+                    docs = self.vectorstore.similarity_search(keyword, k=3)
+                    for doc in docs:
+                        # Deduplicate by content hash
+                        content_hash = hash(doc.page_content[:200])
+                        if content_hash not in seen_content:
+                            seen_content.add(content_hash)
+                            all_docs.append(doc)
+                except Exception as e:
+                    print(f"⚠️ Search failed for '{keyword}': {e}")
+                    continue
+
+            # Return top docs up to max_docs
+            return all_docs[:max_docs]
+
+        except Exception as e:
+            print(f"❌ Smart retrieval error: {e}")
+            # Fallback to direct search
+            try:
+                return self.vectorstore.similarity_search(question, k=max_docs)
+            except:
+                return []

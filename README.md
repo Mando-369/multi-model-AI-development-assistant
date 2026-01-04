@@ -9,6 +9,46 @@
 
 ---
 
+## ⚠️ Known Limitations - Read This First
+
+**Local LLMs are not domain experts.** This system uses 32B parameter models running locally. They are pattern matchers, not reasoning engines. For niche domains like FAUST DSP, they will:
+
+- **Hallucinate syntax** - generate plausible-looking but incorrect code
+- **Ignore documentation** - even with RAG, models don't truly "understand" retrieved docs
+- **Make basic errors** - recursive definitions, wrong library prefixes, invalid syntax
+- **Sound confident while being wrong** - no uncertainty indication
+
+### What This System is Actually Good For
+
+| Task | Rating | Notes |
+|------|--------|-------|
+| Rubber ducking | ✅ Good | Explain your problem out loud, solve it yourself |
+| Boilerplate (Python/JS/C++) | ✅ Good | Common languages with massive training data |
+| Doc search & summarization | ✅ Good | Retrieval + summarization works |
+| Planning & brainstorming | ✅ Decent | Breaking down problems, architecture ideas |
+| **FAUST code generation** | ❌ Poor | Too niche, expect frequent errors |
+| **Being a domain expert** | ❌ No | Pattern matcher, not an expert |
+
+### What This System is NOT
+
+- **Not a replacement for learning** - you still need to know FAUST/JUCE yourself
+- **Not reliable for niche domains** - expect 50-70% accuracy, not 95%+
+- **Not a compiler** - always validate generated code with actual tools
+- **Not magic** - RAG gives context that models may ignore
+
+### Realistic Workflow
+
+Use as a **first-draft generator** and **documentation lookup tool**. For correct FAUST code:
+1. Generate with AI (expect errors)
+2. Validate with FAUST compiler (the actual source of truth)
+3. Fix errors yourself or feed back to AI
+
+The FAUST compiler is smarter than any LLM at FAUST syntax. Use it.
+
+For critical/complex code, consider Claude API or GPT-4 which have broader training.
+
+---
+
 ## Quick Setup (New Users)
 
 ### Option 1: Automated Setup (Recommended)

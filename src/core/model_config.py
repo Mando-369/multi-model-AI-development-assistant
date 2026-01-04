@@ -90,7 +90,7 @@ class ModelConfigManager:
         """Save configuration to file."""
         try:
             with open(self.config_path, 'w') as f:
-                json.dump(self._config.to_dict(), f, indent=2)
+                json.dump(self.config.to_dict(), f, indent=2)
             print(f"Saved model config to {self.config_path}")
         except Exception as e:
             print(f"Error saving model config: {e}")
@@ -112,7 +112,7 @@ class ModelConfigManager:
 
     def set_reasoning_model(self, model_id: str, backend: str, display_name: str):
         """Set the reasoning model."""
-        self._config.reasoning_model = ModelRole(
+        self.config.reasoning_model = ModelRole(
             model_id=model_id,
             backend=backend,
             display_name=display_name
@@ -121,7 +121,7 @@ class ModelConfigManager:
 
     def set_fast_model(self, model_id: str, backend: str, display_name: str):
         """Set the fast model."""
-        self._config.fast_model = ModelRole(
+        self.config.fast_model = ModelRole(
             model_id=model_id,
             backend=backend,
             display_name=display_name

@@ -10,26 +10,18 @@ declare author "Test";
 // Numbers should be purple: 440, 0.5, 1.0, 48000
 freq = 440;
 amp = 0.5;
-sampleRate = 48000;
 
-// Strings should be yellow
-title = "My Synth";
+// Strings only in declare/UI - NOT variable assignment
+declare title "My Synth";
 
-// Keywords should be pink/red: import, declare, process, with, library
-// Functions should be green: sin, cos, fi.lowpass, de.delay
-osc = os.osc(freq);
-filter = fi.lowpass(1, 1000);
-delay = de.delay(48000, 0.1 * ma.SR);
+// Library prefixes: os. fi. de. en. no. ma.
+osc1 = os.osc(freq);
+lpf = fi.lowpass(2, 2000);      // Filter function (apply to signal)
+dly = de.delay(48000, 1000);    // Delay function (apply to signal)
+env = en.adsr(0.01, 0.1, 0.8, 0.2, 1);  // ADSR with gate=1
 
-// Operators should be pink: =, +, -, *, /, <:, :>
-mix = osc * amp;
-stereo = mix <: _, _;
-output = stereo :> _;
+// Operators: =, +, -, *, /, <:, :>
+mix = osc1 * amp;
 
-// Library prefixes should be orange: fi. os. ma. de.
-envelope = en.adsr(0.01, 0.1, 0.8, 0.2);
-noise = no.noise;
-route = ro.interleave(2,2);
-
-// Main process
-process = osc * envelope;
+// Signal chain: osc -> filter -> output * envelope
+process = mix : lpf * env;

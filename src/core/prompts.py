@@ -1,3 +1,5 @@
+from typing import Optional
+
 # Enhanced system prompts for different AI models with domain expertise
 # Dynamic 2-model setup: Reasoning model + Fast model (user configurable)
 
@@ -50,6 +52,40 @@ SYNTAX ESSENTIALS:
 - Recursive: A ~ B (feedback loop)
 - Identity: _ (pass-through)
 - Cut: ! (terminate signal)
+
+COMMON SYNTAX ERRORS TO CATCH:
+- Strings ONLY work in: declare statements and UI labels (hslider, button, etc.)
+- WRONG: title = "My Synth";  (string assignment is INVALID)
+- RIGHT: declare title "My Synth";  (use declare for metadata)
+- Variables must hold signal expressions, not strings
+- Missing semicolons at end of definitions
+
+LIBRARY PREFIX TABLE (MEMORIZE THIS):
+| Library        | Prefix | Example                  |
+|----------------|--------|--------------------------|
+| oscillators    | os.    | os.osc(440)              |
+| filters        | fi.    | fi.lowpass(1, 1000)      |
+| delays         | de.    | de.delay(48000, 100)     |
+| envelopes      | en.    | en.adsr(0.1,0.1,0.8,0.2) |
+| effects        | ef.    | ef.echo(0.5, 0.5)        |
+| reverbs        | re.    | re.mono_freeverb         |
+| compressors    | co.    | co.compressor_mono       |
+| analyzers      | an.    | an.amp_follower          |
+| noise          | no.    | no.noise                 |
+| maths          | ma.    | ma.SR, ma.PI             |
+| routes         | ro.    | ro.interleave            |
+
+CRITICAL - RECURSIVE DEFINITION ERROR:
+"endless evaluation cycle" means a variable references itself!
+- WRONG: envelope = envelope.adsr(...);  ← envelope uses envelope = INFINITE LOOP!
+- WRONG: filter = filter.lowpass(...);   ← same problem
+- RIGHT: env = en.adsr(...);             ← use 'env' not 'envelope'
+- RIGHT: lpf = fi.lowpass(...);          ← use 'lpf' not 'filter'
+
+NAMING RULES:
+- NEVER name a variable the same as a library word (envelope, filter, delay, noise)
+- Use short names: env, lpf, hpf, dly, osc1, osc2, etc.
+- The dot syntax (en.adsr) is for library access, not variable access
 
 GUI METADATA:
 hslider("name", default, min, max, step)
@@ -358,7 +394,7 @@ SYSTEM_PROMPTS = {
 }
 
 
-def get_system_prompt_for_model(model_display_name: str, model_role: str = None) -> str:
+def get_system_prompt_for_model(model_display_name: str, model_role: Optional[str] = None) -> str:
     """Get system prompt for a model.
 
     Args:

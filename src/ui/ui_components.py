@@ -117,7 +117,7 @@ def render_agent_suggestion_approval(glm_system, project_name: str, agent_mode: 
             st.rerun()
 
 
-def _read_file_for_attachment(file_path: str, project_path: Path) -> Optional[str]:
+def _read_file_for_attachment(file_path: str, project_path: Optional[Path]) -> Optional[str]:
     """Read a file for attachment to chat context."""
     try:
         # Try as absolute path first
@@ -280,7 +280,7 @@ def _render_file_browser_popup(glm_system, selected_project: str, attached_file_
         st.rerun()
 
 
-def get_code_language_from_content(content: str) -> str:
+def get_code_language_from_content(content: str) -> Optional[str]:
     """Detect programming language from code content"""
     # FAUST detection
     faust_keywords = ["import", "declare", "process", "library", "component", "with", "letrec", "fi.", "os.", "ma.", "de.", "re.", "en."]
@@ -1381,6 +1381,7 @@ def render_recent_conversations(chat_history, selected_model):
                 # Check for FAUST content
                 has_faust = _detect_faust_code_in_text(answer)
 
+                col4 = None  # Initialize for non-FAUST case
                 if has_faust:
                     col1, col2, col3, col4 = st.columns(4)
                 else:
@@ -1446,6 +1447,7 @@ Please implement the above approach."""
 
                 # FAUST Analyze button in col4 (only if has_faust)
                 if has_faust:
+                    assert col4 is not None
                     with col4:
                         analyze_key = f"show_faust_analysis_{msg_id}"
                         if st.button("🎛️ Analyze FAUST", key=f"faust_{msg_id}"):
@@ -1775,4 +1777,206 @@ def render_faust_server_status(glm_system):
 
     except Exception as e:
         st.warning(f"Could not check FAUST server status: {e}")
+
+
+def render_wavesurfer_player(audio_url: str, key: str = "wavesurfer", height: int = 200) -> None:
+    """Render a wavesurfer.js audio player with region loop support.
+
+    Args:
+        audio_url: URL or path to the audio file (must be accessible via HTTP)
+        key: Unique key for the component (used to make waveform ID unique)
+        height: Height of the waveform display in pixels
+    """
+    import streamlit.components.v1 as components
+    # Use key to create unique element IDs
+    waveform_id = f"waveform_{key}"
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <script src="https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.min.js"></script>
+        <script src="https://unpkg.com/wavesurfer.js@7/dist/plugins/regions.min.js"></script>
+        <style>
+            * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+            body {{
+                font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+                background: transparent;
+                padding: 10px;
+            }}
+            #{waveform_id} {{
+                width: 100%;
+                height: {height - 60}px;
+                background: #1a1a2e;
+                border-radius: 8px;
+                margin-bottom: 10px;
+            }}
+            .controls {{
+                display: flex;
+                gap: 8px;
+                align-items: center;
+                flex-wrap: wrap;
+            }}
+            button {{
+                background: #4a4a6a;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 14px;
+                transition: background 0.2s;
+            }}
+            button:hover {{ background: #5a5a8a; }}
+            button:disabled {{ background: #333; cursor: not-allowed; }}
+            button.active {{ background: #6366f1; }}
+            .info {{
+                color: #888;
+                font-size: 12px;
+                margin-left: auto;
+            }}
+            .time {{
+                color: #aaa;
+                font-size: 13px;
+                font-family: monospace;
+            }}
+            .region-info {{
+                color: #6366f1;
+                font-size: 12px;
+            }}
+        </style>
+    </head>
+    <body>
+        <div id="{waveform_id}"></div>
+        <div class="controls">
+            <button id="playBtn" disabled>▶ Play</button>
+            <button id="stopBtn" disabled>⏹ Stop</button>
+            <button id="loopBtn" disabled>🔁 Loop Region</button>
+            <button id="clearBtn" disabled>✕ Clear</button>
+            <span class="time" id="timeDisplay">0:00 / 0:00</span>
+            <span class="region-info" id="regionInfo"></span>
+            <span class="info">Drag on waveform to select loop region</span>
+        </div>
+
+        <script>
+            let wavesurfer = null;
+            let regions = null;
+            let activeRegion = null;
+            let loopEnabled = false;
+
+            document.addEventListener('DOMContentLoaded', function() {{
+                // Initialize WaveSurfer
+                wavesurfer = WaveSurfer.create({{
+                    container: '#{waveform_id}',
+                    waveColor: '#4a4a6a',
+                    progressColor: '#6366f1',
+                    cursorColor: '#fff',
+                    barWidth: 2,
+                    barGap: 1,
+                    barRadius: 2,
+                    height: {height - 60},
+                    normalize: true,
+                }});
+
+                // Initialize Regions plugin
+                regions = wavesurfer.registerPlugin(WaveSurfer.Regions.create());
+
+                // Load audio
+                wavesurfer.load('{audio_url}');
+
+                const playBtn = document.getElementById('playBtn');
+                const stopBtn = document.getElementById('stopBtn');
+                const loopBtn = document.getElementById('loopBtn');
+                const clearBtn = document.getElementById('clearBtn');
+                const timeDisplay = document.getElementById('timeDisplay');
+                const regionInfo = document.getElementById('regionInfo');
+
+                function formatTime(seconds) {{
+                    const mins = Math.floor(seconds / 60);
+                    const secs = Math.floor(seconds % 60);
+                    return mins + ':' + secs.toString().padStart(2, '0');
+                }}
+
+                wavesurfer.on('ready', function() {{
+                    playBtn.disabled = false;
+                    stopBtn.disabled = false;
+                    loopBtn.disabled = false;
+                    clearBtn.disabled = false;
+                    timeDisplay.textContent = '0:00 / ' + formatTime(wavesurfer.getDuration());
+                }});
+
+                wavesurfer.on('audioprocess', function() {{
+                    timeDisplay.textContent = formatTime(wavesurfer.getCurrentTime()) + ' / ' + formatTime(wavesurfer.getDuration());
+                }});
+
+                wavesurfer.on('play', function() {{
+                    playBtn.textContent = '⏸ Pause';
+                }});
+
+                wavesurfer.on('pause', function() {{
+                    playBtn.textContent = '▶ Play';
+                }});
+
+                // Region creation by dragging
+                regions.enableDragSelection({{
+                    color: 'rgba(99, 102, 241, 0.3)',
+                }});
+
+                regions.on('region-created', function(region) {{
+                    // Remove previous region if exists
+                    if (activeRegion && activeRegion !== region) {{
+                        activeRegion.remove();
+                    }}
+                    activeRegion = region;
+                    region.setOptions({{ color: 'rgba(99, 102, 241, 0.3)' }});
+                    regionInfo.textContent = 'Region: ' + formatTime(region.start) + ' - ' + formatTime(region.end);
+                }});
+
+                regions.on('region-updated', function(region) {{
+                    regionInfo.textContent = 'Region: ' + formatTime(region.start) + ' - ' + formatTime(region.end);
+                }});
+
+                // Play button
+                playBtn.addEventListener('click', function() {{
+                    wavesurfer.playPause();
+                }});
+
+                // Stop button
+                stopBtn.addEventListener('click', function() {{
+                    wavesurfer.stop();
+                }});
+
+                // Loop button
+                loopBtn.addEventListener('click', function() {{
+                    loopEnabled = !loopEnabled;
+                    loopBtn.classList.toggle('active', loopEnabled);
+                    if (loopEnabled && activeRegion) {{
+                        activeRegion.play();
+                    }}
+                }});
+
+                // Clear region button
+                clearBtn.addEventListener('click', function() {{
+                    if (activeRegion) {{
+                        activeRegion.remove();
+                        activeRegion = null;
+                        regionInfo.textContent = '';
+                        loopEnabled = false;
+                        loopBtn.classList.remove('active');
+                    }}
+                }});
+
+                // Loop region when reaching end
+                regions.on('region-out', function(region) {{
+                    if (loopEnabled && region === activeRegion) {{
+                        region.play();
+                    }}
+                }});
+            }});
+        </script>
+    </body>
+    </html>
+    """
+
+    components.html(html_content, height=height, scrolling=False)
 

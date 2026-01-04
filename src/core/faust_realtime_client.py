@@ -16,6 +16,8 @@ try:
     MCP_AVAILABLE = True
 except ImportError:
     MCP_AVAILABLE = False
+    sse_client = None  # type: ignore
+    ClientSession = None  # type: ignore
 
 # Check for anyio
 try:
@@ -23,6 +25,7 @@ try:
     ANYIO_AVAILABLE = True
 except ImportError:
     ANYIO_AVAILABLE = False
+    anyio = None  # type: ignore
 
 
 @dataclass
@@ -78,12 +81,12 @@ class FaustRealtimeClient:
             )
 
         try:
-            async with sse_client(self.server_url) as (read, write):
-                async with ClientSession(read, write) as session:
+            async with sse_client(self.server_url) as (read, write):  # type: ignore[misc]
+                async with ClientSession(read, write) as session:  # type: ignore[misc]
                     await session.initialize()
 
                     # Build params dict
-                    params = {
+                    params: Dict[str, Any] = {
                         "faust_code": faust_code,
                         "name": name,
                         "latency_hint": latency_hint,
@@ -101,7 +104,7 @@ class FaustRealtimeClient:
 
                     # Parse result
                     if hasattr(result, 'content') and result.content:
-                        text = result.content[0].text
+                        text = getattr(result.content[0], 'text', '')
                         if text.startswith("Error") or "error" in text.lower():
                             return FaustRealtimeResult(success=False, error=text)
 
@@ -139,14 +142,14 @@ class FaustRealtimeClient:
             )
 
         try:
-            async with sse_client(self.server_url) as (read, write):
-                async with ClientSession(read, write) as session:
+            async with sse_client(self.server_url) as (read, write):  # type: ignore[misc]
+                async with ClientSession(read, write) as session:  # type: ignore[misc]
                     await session.initialize()
 
                     result = await session.call_tool("stop", {})
 
                     if hasattr(result, 'content') and result.content:
-                        text = result.content[0].text
+                        text = getattr(result.content[0], 'text', '')
                         return FaustRealtimeResult(
                             success=True,
                             message=text
@@ -169,14 +172,14 @@ class FaustRealtimeClient:
             )
 
         try:
-            async with sse_client(self.server_url) as (read, write):
-                async with ClientSession(read, write) as session:
+            async with sse_client(self.server_url) as (read, write):  # type: ignore[misc]
+                async with ClientSession(read, write) as session:  # type: ignore[misc]
                     await session.initialize()
 
                     result = await session.call_tool("get_params", {})
 
                     if hasattr(result, 'content') and result.content:
-                        text = result.content[0].text
+                        text = getattr(result.content[0], 'text', '')
                         try:
                             params = json.loads(text)
                             return FaustRealtimeResult(
@@ -206,8 +209,8 @@ class FaustRealtimeClient:
             )
 
         try:
-            async with sse_client(self.server_url) as (read, write):
-                async with ClientSession(read, write) as session:
+            async with sse_client(self.server_url) as (read, write):  # type: ignore[misc]
+                async with ClientSession(read, write) as session:  # type: ignore[misc]
                     await session.initialize()
 
                     result = await session.call_tool(
@@ -218,7 +221,7 @@ class FaustRealtimeClient:
                     if hasattr(result, 'content') and result.content:
                         return FaustRealtimeResult(
                             success=True,
-                            message=result.content[0].text
+                            message=getattr(result.content[0], 'text', '')
                         )
 
                     return FaustRealtimeResult(success=True)
@@ -248,8 +251,8 @@ class FaustRealtimeClient:
             )
 
         try:
-            async with sse_client(self.server_url) as (read, write):
-                async with ClientSession(read, write) as session:
+            async with sse_client(self.server_url) as (read, write):  # type: ignore[misc]
+                async with ClientSession(read, write) as session:  # type: ignore[misc]
                     await session.initialize()
 
                     result = await session.call_tool(
@@ -262,7 +265,7 @@ class FaustRealtimeClient:
 
                     # Parse result
                     if hasattr(result, 'content') and result.content:
-                        text = result.content[0].text
+                        text = getattr(result.content[0], 'text', '')
                         if text.startswith("Error") or "error" in text.lower():
                             return FaustRealtimeResult(success=False, error=text)
 
@@ -331,7 +334,7 @@ def run_faust(
             input_file=input_file
         )
 
-    return anyio.run(_run)
+    return anyio.run(_run)  # type: ignore[union-attr]
 
 
 def stop_faust(server_url: str = "http://127.0.0.1:8000/sse") -> FaustRealtimeResult:
@@ -346,7 +349,7 @@ def stop_faust(server_url: str = "http://127.0.0.1:8000/sse") -> FaustRealtimeRe
         client = FaustRealtimeClient(server_url)
         return await client.stop_async()
 
-    return anyio.run(_stop)
+    return anyio.run(_stop)  # type: ignore[union-attr]
 
 
 def get_faust_params(server_url: str = "http://127.0.0.1:8000/sse") -> FaustRealtimeResult:
@@ -361,7 +364,7 @@ def get_faust_params(server_url: str = "http://127.0.0.1:8000/sse") -> FaustReal
         client = FaustRealtimeClient(server_url)
         return await client.get_params_async()
 
-    return anyio.run(_get)
+    return anyio.run(_get)  # type: ignore[union-attr]
 
 
 def set_faust_param(
@@ -380,7 +383,7 @@ def set_faust_param(
         client = FaustRealtimeClient(server_url)
         return await client.set_param_async(path, value)
 
-    return anyio.run(_set)
+    return anyio.run(_set)  # type: ignore[union-attr]
 
 
 def check_faust_syntax_realtime(
@@ -409,7 +412,7 @@ def check_faust_syntax_realtime(
         client = FaustRealtimeClient(server_url)
         return await client.check_syntax_async(faust_code, name)
 
-    return anyio.run(_check)
+    return anyio.run(_check)  # type: ignore[union-attr]
 
 
 def check_realtime_server(server_url: str = "http://127.0.0.1:8000/sse") -> bool:
@@ -419,15 +422,15 @@ def check_realtime_server(server_url: str = "http://127.0.0.1:8000/sse") -> bool
 
     async def _check():
         try:
-            async with sse_client(server_url) as (read, write):
-                async with ClientSession(read, write) as session:
+            async with sse_client(server_url) as (read, write):  # type: ignore[misc]
+                async with ClientSession(read, write) as session:  # type: ignore[misc]
                     await session.initialize()
                     return True
         except Exception:
             return False
 
     try:
-        return anyio.run(_check)
+        return anyio.run(_check)  # type: ignore[union-attr]
     except Exception:
         return False
 

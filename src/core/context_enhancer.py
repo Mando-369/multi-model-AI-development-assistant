@@ -4,8 +4,8 @@ Provides intelligent ChromaDB retrieval with domain-specific search strategies
 """
 
 import re
-from typing import List, Dict, Set, Tuple, Optional
-from langchain_community.vectorstores import Chroma
+from typing import Any, List, Dict, Set, Tuple, Optional
+from langchain_chroma import Chroma
 from .prompts import CONTEXT_ENHANCEMENT_PATTERNS, DSP_ALGORITHM_TEMPLATES
 
 
@@ -90,7 +90,7 @@ class ContextEnhancer:
     def enhance_context_for_query(self, 
                                  query: str, 
                                  task_type: str = "general",
-                                 max_docs: int = 8) -> Dict[str, any]:
+                                 max_docs: int = 8) -> Dict[str, Any]:
         """
         Enhance context retrieval based on query analysis and task type
         
@@ -132,7 +132,7 @@ class ContextEnhancer:
         
         return context
     
-    def _analyze_query(self, query: str, task_type: str) -> Dict[str, any]:
+    def _analyze_query(self, query: str, task_type: str) -> Dict[str, Any]:
         """Analyze query for domain-specific patterns"""
         query_lower = query.lower()
         
