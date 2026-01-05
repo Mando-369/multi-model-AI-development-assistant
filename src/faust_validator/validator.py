@@ -139,14 +139,6 @@ class FAUSTValidator:
         for line_num, line in enumerate(lines, 1):
             stripped = line.strip()
 
-            # Check for ba.if usage (strict evaluation trap)
-            if "ba.if" in line or "ba.selector" in line:
-                warnings.append({
-                    "line": line_num,
-                    "message": "ba.if evaluates BOTH branches (strict evaluation)",
-                    "suggestion": "Ensure neither branch can cause division by zero or other errors"
-                })
-
             # Check for division without protection
             if re.search(r'/\s*\w+\s*[;,)]', line) and "max(" not in line:
                 # Looks like division by a variable without max protection

@@ -65,16 +65,8 @@ class SyntaxChecker:
 
                 # Check if prefix is known
                 if prefix not in self.known_prefixes:
-                    # Might be a variable access, not a library call
-                    # Only warn if it looks like a library prefix (2-3 chars)
-                    if len(prefix) <= 3:
-                        errors.append(SyntaxError(
-                            line=line_num,
-                            column=col,
-                            message=f"Unknown library prefix '{prefix}'",
-                            suggestion=f"Known prefixes: {', '.join(sorted(self.known_prefixes)[:10])}...",
-                            severity="warning"
-                        ))
+                    # Could be a local alias (svf = fi.svf) or nested env
+                    # Skip warning - let the compiler catch real errors
                     continue
 
                 # Check if function exists

@@ -183,6 +183,50 @@ def parse_function_block(block: str, default_prefix: str) -> Optional[Dict[str, 
     }
 
 
+def parse_nested_environment(content: str, prefix: str, env_name: str) -> Dict[str, Dict[str, Any]]:
+    """Parse functions inside a nested environment like fi.svf."""
+    functions = {}
+
+    # Find the environment block
+    # Pattern: name = environment { ... };
+    env_match = re.search(rf'^{env_name}\s*=\s*environment\s*\{{(.*?)\n\}};', content, re.MULTILINE | re.DOTALL)
+    if not env_match:
+        return functions
+
+    env_content = env_match.group(1)
+
+    # Find function definitions inside environment
+    # Pattern: funcname(args) = ...;  or  funcname(args) = ... with { ... };
+    # Simple pattern for external API functions like: lp(f,q) = svf(0, f, q, 0);
+    func_pattern = re.finditer(r'^\s*(\w+)\s*\(([^)]*)\)\s*=\s*[^;]+;', env_content, re.MULTILINE)
+
+    for match in func_pattern:
+        func_name = match.group(1)
+        args_str = match.group(2)
+
+        # Skip internal implementation functions (like 'svf' inside svf env)
+        if func_name == env_name:
+            continue
+
+        args = [a.strip() for a in args_str.split(',')] if args_str.strip() else []
+
+        full_name = f"{prefix}.{env_name}.{func_name}"
+        functions[full_name] = {
+            "prefix": prefix,
+            "name": f"{env_name}.{func_name}",
+            "full_name": full_name,
+            "args": args,
+            "arg_count": len(args),
+            "inputs": 1,  # Most are filters
+            "outputs": 1,
+            "description": f"{env_name} {func_name} filter",
+            "param_docs": {},
+            "example": ""
+        }
+
+    return functions
+
+
 def parse_lib_file(filepath: Path) -> Dict[str, Dict[str, Any]]:
     """Parse a single .lib file and extract all functions."""
     content = filepath.read_text(encoding='utf-8', errors='replace')
@@ -206,6 +250,16 @@ def parse_lib_file(filepath: Path) -> Dict[str, Dict[str, Any]]:
             if func_info:
                 functions[func_info["full_name"]] = func_info
             current_header = None
+
+    # Parse nested environments (like fi.svf, fi.highShelf, etc.)
+    # Find all environment definitions
+    env_matches = re.finditer(r'^(\w+)\s*=\s*environment\s*\{', content, re.MULTILINE)
+    for env_match in env_matches:
+        env_name = env_match.group(1)
+        nested_funcs = parse_nested_environment(content, default_prefix, env_name)
+        functions.update(nested_funcs)
+        if nested_funcs:
+            print(f"  → {default_prefix}.{env_name}: {len(nested_funcs)} nested functions")
 
     return functions
 
@@ -252,8 +306,8 @@ def main():
     """Main entry point."""
     import sys
 
-    # Default paths
-    libs_dir = Path("/Users/thomasmandolini/Dev/Local Coding Assistant/faustlibraries")
+    # Default paths - use faustlibraries submodule
+    libs_dir = Path(__file__).parent.parent.parent.parent / "faust_documentation" / "faustlibraries"
     output_file = Path(__file__).parent.parent / "static" / "faust_bible.json"
 
     if len(sys.argv) > 1:

@@ -1,11 +1,11 @@
 {
   "version": "1.0",
-  "source": "/Users/thomasmandolini/Dev/Local Coding Assistant/faustlibraries",
+  "source": "/Users/thomasmandolini/Dev/Local Coding Assistant/multi-model-AI-development-assistant/faust_documentation/faustlibraries",
   "libraries": {
     "aanl": {
       "file": "aanl.lib",
       "prefix": "aa",
-      "function_count": 41
+      "function_count": 44
     },
     "all": {
       "file": "all.lib",
@@ -20,7 +20,7 @@
     "basics": {
       "file": "basics.lib",
       "prefix": "ba",
-      "function_count": 87
+      "function_count": 96
     },
     "compressors": {
       "file": "compressors.lib",
@@ -45,7 +45,7 @@
     "envelopes": {
       "file": "envelopes.lib",
       "prefix": "en",
-      "function_count": 14
+      "function_count": 20
     },
     "fds": {
       "file": "fds.lib",
@@ -55,7 +55,7 @@
     "filters": {
       "file": "filters.lib",
       "prefix": "fi",
-      "function_count": 111
+      "function_count": 137
     },
     "hoa": {
       "file": "hoa.lib",
@@ -95,7 +95,7 @@
     "misceffects": {
       "file": "misceffects.lib",
       "prefix": "ef",
-      "function_count": 25
+      "function_count": 39
     },
     "motion": {
       "file": "motion.lib",
@@ -110,7 +110,7 @@
     "oscillators": {
       "file": "oscillators.lib",
       "prefix": "os",
-      "function_count": 72
+      "function_count": 97
     },
     "phaflangers": {
       "file": "phaflangers.lib",
@@ -120,7 +120,7 @@
     "physmodels": {
       "file": "physmodels.lib",
       "prefix": "pm",
-      "function_count": 150
+      "function_count": 153
     },
     "platform": {
       "file": "platform.lib",
@@ -130,7 +130,7 @@
     "quantizers": {
       "file": "quantizers.lib",
       "prefix": "qu",
-      "function_count": 15
+      "function_count": 23
     },
     "reducemaps": {
       "file": "reducemaps.lib",
@@ -140,7 +140,7 @@
     "reverbs": {
       "file": "reverbs.lib",
       "prefix": "re",
-      "function_count": 15
+      "function_count": 22
     },
     "routes": {
       "file": "routes.lib",
@@ -160,7 +160,7 @@
     "soundfiles": {
       "file": "soundfiles.lib",
       "prefix": "so",
-      "function_count": 3
+      "function_count": 13
     },
     "spats": {
       "file": "spats.lib",
@@ -794,6 +794,48 @@
       "description": "Second-order ADAA atanh().",
       "param_docs": {},
       "example": "aa = library(\"aanl.lib\");\nos = library(\"oscillators.lib\");\natanh2_test = aa.atanh2(0.8 * os.osc(110));"
+    },
+    "aa.softclipEnv.softclip": {
+      "prefix": "aa",
+      "name": "softclipEnv.softclip",
+      "full_name": "aa.softclipEnv.softclip",
+      "args": [
+        "x"
+      ],
+      "arg_count": 1,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "softclipEnv softclip filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "aa.softclipEnv.F1": {
+      "prefix": "aa",
+      "name": "softclipEnv.F1",
+      "full_name": "aa.softclipEnv.F1",
+      "args": [
+        "x"
+      ],
+      "arg_count": 1,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "softclipEnv F1 filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "aa.softclipEnv.F2": {
+      "prefix": "aa",
+      "name": "softclipEnv.F2",
+      "full_name": "aa.softclipEnv.F2",
+      "args": [
+        "x"
+      ],
+      "arg_count": 1,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "softclipEnv F2 filter",
+      "param_docs": {},
+      "example": ""
     },
     "an.abs_envelope_rect": {
       "prefix": "an",
@@ -2697,6 +2739,147 @@
       },
       "example": "ba = library(\"basics.lib\");\nparallelRMS_test = (0.2, 0.5, 0.1) : ba.parallelRMS(3);"
     },
+    "ba.bpf.start": {
+      "prefix": "ba",
+      "name": "bpf.start",
+      "full_name": "ba.bpf.start",
+      "args": [
+        "x0",
+        "y0"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "bpf start filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "ba.bpf.point": {
+      "prefix": "ba",
+      "name": "bpf.point",
+      "full_name": "ba.bpf.point",
+      "args": [
+        "x1",
+        "y1"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "bpf point filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "ba.bpf.end": {
+      "prefix": "ba",
+      "name": "bpf.end",
+      "full_name": "ba.bpf.end",
+      "args": [
+        "x1",
+        "y1"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "bpf end filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "ba.bpf.step": {
+      "prefix": "ba",
+      "name": "bpf.step",
+      "full_name": "ba.bpf.step",
+      "args": [
+        "x1",
+        "y1"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "bpf step filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "ba.bpf.step_end": {
+      "prefix": "ba",
+      "name": "bpf.step_end",
+      "full_name": "ba.bpf.step_end",
+      "args": [
+        "x1",
+        "y1"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "bpf step_end filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "ba.bpf.curve": {
+      "prefix": "ba",
+      "name": "bpf.curve",
+      "full_name": "ba.bpf.curve",
+      "args": [
+        "B",
+        "x1",
+        "y1"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "bpf curve filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "ba.bpf.curve_end": {
+      "prefix": "ba",
+      "name": "bpf.curve_end",
+      "full_name": "ba.bpf.curve_end",
+      "args": [
+        "B",
+        "x1",
+        "y1"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "bpf curve_end filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "ba.bpf._bias_curve": {
+      "prefix": "ba",
+      "name": "bpf._bias_curve",
+      "full_name": "ba.bpf._bias_curve",
+      "args": [
+        "b",
+        "x"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "bpf _bias_curve filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "ba.bpf._curve_util": {
+      "prefix": "ba",
+      "name": "bpf._curve_util",
+      "full_name": "ba.bpf._curve_util",
+      "args": [
+        "x0",
+        "x1",
+        "y0",
+        "y1",
+        "b",
+        "x"
+      ],
+      "arg_count": 6,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "bpf _curve_util filter",
+      "param_docs": {},
+      "example": ""
+    },
     "co.ratio": {
       "prefix": "co",
       "name": "ratio",
@@ -4472,6 +4655,113 @@
         "t": "trigger signal"
       },
       "example": "en = library(\"envelopes.lib\");\nos = library(\"oscillators.lib\");\ndx7envelope_test = en.dx7envelope(\n0.05, 0.1, 0.1, 0.2,\n1, 0.8, 0.6, 0,\nbutton(\"gate\")\n) * os.osc(440);"
+    },
+    "en.adsr_bias_env.bias_curve": {
+      "prefix": "en",
+      "name": "adsr_bias_env.bias_curve",
+      "full_name": "en.adsr_bias_env.bias_curve",
+      "args": [
+        "b",
+        "x"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "adsr_bias_env bias_curve filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "en.adsr_bias_env.bias_curve_d_dx": {
+      "prefix": "en",
+      "name": "adsr_bias_env.bias_curve_d_dx",
+      "full_name": "en.adsr_bias_env.bias_curve_d_dx",
+      "args": [
+        "b",
+        "x"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "adsr_bias_env bias_curve_d_dx filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "en.adsr_bias_env.bias_curve_inverse": {
+      "prefix": "en",
+      "name": "adsr_bias_env.bias_curve_inverse",
+      "full_name": "en.adsr_bias_env.bias_curve_inverse",
+      "args": [
+        "b",
+        "y"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "adsr_bias_env bias_curve_inverse filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "en.adsr_bias_env.adsr_bias": {
+      "prefix": "en",
+      "name": "adsr_bias_env.adsr_bias",
+      "full_name": "en.adsr_bias_env.adsr_bias",
+      "args": [
+        "att",
+        "dec",
+        "sus",
+        "rel",
+        "final",
+        "bias_att",
+        "bias_dec",
+        "bias_rel",
+        "legato",
+        "gate"
+      ],
+      "arg_count": 10,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "adsr_bias_env adsr_bias filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "en.adsr_bias_env.fb": {
+      "prefix": "en",
+      "name": "adsr_bias_env.fb",
+      "full_name": "en.adsr_bias_env.fb",
+      "args": [
+        "_state",
+        "_y"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "adsr_bias_env fb filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "en.adsr_bias_env.ahdsr_bias": {
+      "prefix": "en",
+      "name": "adsr_bias_env.ahdsr_bias",
+      "full_name": "en.adsr_bias_env.ahdsr_bias",
+      "args": [
+        "att",
+        "hol",
+        "dec",
+        "sus",
+        "rel",
+        "final",
+        "bias_att",
+        "bias_dec",
+        "bias_rel",
+        "legato",
+        "gate"
+      ],
+      "arg_count": 11,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "adsr_bias_env ahdsr_bias filter",
+      "param_docs": {},
+      "example": ""
     },
     "fd.model1D": {
       "prefix": "fd",
@@ -6731,6 +7021,424 @@
         "u": "Control input (Mx1)",
         "z": "Measurement signal (Mx1)"
       },
+      "example": ""
+    },
+    "fi.svf.lp": {
+      "prefix": "fi",
+      "name": "svf.lp",
+      "full_name": "fi.svf.lp",
+      "args": [
+        "f",
+        "q"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "svf lp filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "fi.svf.bp": {
+      "prefix": "fi",
+      "name": "svf.bp",
+      "full_name": "fi.svf.bp",
+      "args": [
+        "f",
+        "q"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "svf bp filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "fi.svf.hp": {
+      "prefix": "fi",
+      "name": "svf.hp",
+      "full_name": "fi.svf.hp",
+      "args": [
+        "f",
+        "q"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "svf hp filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "fi.svf.notch": {
+      "prefix": "fi",
+      "name": "svf.notch",
+      "full_name": "fi.svf.notch",
+      "args": [
+        "f",
+        "q"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "svf notch filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "fi.svf.peak": {
+      "prefix": "fi",
+      "name": "svf.peak",
+      "full_name": "fi.svf.peak",
+      "args": [
+        "f",
+        "q"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "svf peak filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "fi.svf.ap": {
+      "prefix": "fi",
+      "name": "svf.ap",
+      "full_name": "fi.svf.ap",
+      "args": [
+        "f",
+        "q"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "svf ap filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "fi.svf.bell": {
+      "prefix": "fi",
+      "name": "svf.bell",
+      "full_name": "fi.svf.bell",
+      "args": [
+        "f",
+        "q",
+        "g"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "svf bell filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "fi.svf.ls": {
+      "prefix": "fi",
+      "name": "svf.ls",
+      "full_name": "fi.svf.ls",
+      "args": [
+        "f",
+        "q",
+        "g"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "svf ls filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "fi.svf.hs": {
+      "prefix": "fi",
+      "name": "svf.hs",
+      "full_name": "fi.svf.hs",
+      "args": [
+        "f",
+        "q",
+        "g"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "svf hs filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "fi.SVFTPT.SVF": {
+      "prefix": "fi",
+      "name": "SVFTPT.SVF",
+      "full_name": "fi.SVFTPT.SVF",
+      "args": [
+        "CF",
+        "Q",
+        "x"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "SVFTPT SVF filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "fi.SVFTPT.f": {
+      "prefix": "fi",
+      "name": "SVFTPT.f",
+      "full_name": "fi.SVFTPT.f",
+      "args": [
+        "s0",
+        "s1"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "SVFTPT f filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "fi.SVFTPT.LP2": {
+      "prefix": "fi",
+      "name": "SVFTPT.LP2",
+      "full_name": "fi.SVFTPT.LP2",
+      "args": [
+        "CF",
+        "Q",
+        "x"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "SVFTPT LP2 filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "fi.SVFTPT.HP2": {
+      "prefix": "fi",
+      "name": "SVFTPT.HP2",
+      "full_name": "fi.SVFTPT.HP2",
+      "args": [
+        "CF",
+        "Q",
+        "x"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "SVFTPT HP2 filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "fi.SVFTPT.BP2": {
+      "prefix": "fi",
+      "name": "SVFTPT.BP2",
+      "full_name": "fi.SVFTPT.BP2",
+      "args": [
+        "CF",
+        "Q",
+        "x"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "SVFTPT BP2 filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "fi.SVFTPT.BP2Norm": {
+      "prefix": "fi",
+      "name": "SVFTPT.BP2Norm",
+      "full_name": "fi.SVFTPT.BP2Norm",
+      "args": [
+        "CF",
+        "Q",
+        "x"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "SVFTPT BP2Norm filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "fi.SVFTPT.Notch2": {
+      "prefix": "fi",
+      "name": "SVFTPT.Notch2",
+      "full_name": "fi.SVFTPT.Notch2",
+      "args": [
+        "CF",
+        "Q",
+        "x"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "SVFTPT Notch2 filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "fi.SVFTPT.AP2": {
+      "prefix": "fi",
+      "name": "SVFTPT.AP2",
+      "full_name": "fi.SVFTPT.AP2",
+      "args": [
+        "CF",
+        "Q",
+        "x"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "SVFTPT AP2 filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "fi.SVFTPT.Peaking2": {
+      "prefix": "fi",
+      "name": "SVFTPT.Peaking2",
+      "full_name": "fi.SVFTPT.Peaking2",
+      "args": [
+        "CF",
+        "Q",
+        "x"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "SVFTPT Peaking2 filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "fi.kalmanEnv.predictState": {
+      "prefix": "fi",
+      "name": "kalmanEnv.predictState",
+      "full_name": "fi.kalmanEnv.predictState",
+      "args": [
+        "N",
+        "M",
+        "F",
+        "B"
+      ],
+      "arg_count": 4,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "kalmanEnv predictState filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "fi.kalmanEnv.predictCovariance": {
+      "prefix": "fi",
+      "name": "kalmanEnv.predictCovariance",
+      "full_name": "fi.kalmanEnv.predictCovariance",
+      "args": [
+        "N",
+        "F",
+        "Q",
+        "P"
+      ],
+      "arg_count": 4,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "kalmanEnv predictCovariance filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "fi.kalmanEnv.kalmanGain": {
+      "prefix": "fi",
+      "name": "kalmanEnv.kalmanGain",
+      "full_name": "fi.kalmanEnv.kalmanGain",
+      "args": [
+        "N",
+        "M",
+        "H",
+        "R"
+      ],
+      "arg_count": 4,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "kalmanEnv kalmanGain filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "fi.kalmanEnv.updateState": {
+      "prefix": "fi",
+      "name": "kalmanEnv.updateState",
+      "full_name": "fi.kalmanEnv.updateState",
+      "args": [
+        "N",
+        "M",
+        "H"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "kalmanEnv updateState filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "fi.kalmanEnv.mySwap": {
+      "prefix": "fi",
+      "name": "kalmanEnv.mySwap",
+      "full_name": "fi.kalmanEnv.mySwap",
+      "args": [
+        "N",
+        "M"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "kalmanEnv mySwap filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "fi.kalmanEnv.K_mul_residual": {
+      "prefix": "fi",
+      "name": "kalmanEnv.K_mul_residual",
+      "full_name": "fi.kalmanEnv.K_mul_residual",
+      "args": [
+        "N",
+        "M",
+        "H"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "kalmanEnv K_mul_residual filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "fi.kalmanEnv.updateCovariance": {
+      "prefix": "fi",
+      "name": "kalmanEnv.updateCovariance",
+      "full_name": "fi.kalmanEnv.updateCovariance",
+      "args": [
+        "N",
+        "M",
+        "H",
+        "K",
+        "P_pred"
+      ],
+      "arg_count": 5,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "kalmanEnv updateCovariance filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "fi.kalmanEnv.kalmanFilter": {
+      "prefix": "fi",
+      "name": "kalmanEnv.kalmanFilter",
+      "full_name": "fi.kalmanEnv.kalmanFilter",
+      "args": [
+        "N",
+        "M",
+        "B",
+        "R",
+        "H",
+        "Q",
+        "F",
+        "reset"
+      ],
+      "arg_count": 8,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "kalmanEnv kalmanFilter filter",
+      "param_docs": {},
       "example": ""
     },
     "ho.encoder": {
@@ -9352,6 +10060,222 @@
       },
       "example": "ef = library(\"misceffects.lib\");\nos = library(\"oscillators.lib\");\nwavefold_test = os.osc(440) : ef.wavefold(0.5);"
     },
+    "ef.mixingEnv.phaseLoop": {
+      "prefix": "ef",
+      "name": "mixingEnv.phaseLoop",
+      "full_name": "ef.mixingEnv.phaseLoop",
+      "args": [
+        "N",
+        "m",
+        "i"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "mixingEnv phaseLoop filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "ef.mixingEnv.phaseClamp": {
+      "prefix": "ef",
+      "name": "mixingEnv.phaseClamp",
+      "full_name": "ef.mixingEnv.phaseClamp",
+      "args": [
+        "N",
+        "m",
+        "i"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "mixingEnv phaseClamp filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "ef.mixingEnv.weightsPowerLoop": {
+      "prefix": "ef",
+      "name": "mixingEnv.weightsPowerLoop",
+      "full_name": "ef.mixingEnv.weightsPowerLoop",
+      "args": [
+        "N",
+        "m"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "mixingEnv weightsPowerLoop filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "ef.mixingEnv.weightsLinearLoop": {
+      "prefix": "ef",
+      "name": "mixingEnv.weightsLinearLoop",
+      "full_name": "ef.mixingEnv.weightsLinearLoop",
+      "args": [
+        "N",
+        "m"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "mixingEnv weightsLinearLoop filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "ef.mixingEnv.weightsPowerClamp": {
+      "prefix": "ef",
+      "name": "mixingEnv.weightsPowerClamp",
+      "full_name": "ef.mixingEnv.weightsPowerClamp",
+      "args": [
+        "N",
+        "m"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "mixingEnv weightsPowerClamp filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "ef.mixingEnv.weightsLinearClamp": {
+      "prefix": "ef",
+      "name": "mixingEnv.weightsLinearClamp",
+      "full_name": "ef.mixingEnv.weightsLinearClamp",
+      "args": [
+        "N",
+        "m"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "mixingEnv weightsLinearClamp filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "ef.mixingEnv.dryWetMixer": {
+      "prefix": "ef",
+      "name": "mixingEnv.dryWetMixer",
+      "full_name": "ef.mixingEnv.dryWetMixer",
+      "args": [
+        "wetAmount",
+        "FX"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "mixingEnv dryWetMixer filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "ef.mixingEnv.dryWetMixerConstantPower": {
+      "prefix": "ef",
+      "name": "mixingEnv.dryWetMixerConstantPower",
+      "full_name": "ef.mixingEnv.dryWetMixerConstantPower",
+      "args": [
+        "wetAmount",
+        "FX"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "mixingEnv dryWetMixerConstantPower filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "ef.mixingEnv.mixLinearClamp": {
+      "prefix": "ef",
+      "name": "mixingEnv.mixLinearClamp",
+      "full_name": "ef.mixingEnv.mixLinearClamp",
+      "args": [
+        "N",
+        "C",
+        "m"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "mixingEnv mixLinearClamp filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "ef.mixingEnv.mixLinearLoop": {
+      "prefix": "ef",
+      "name": "mixingEnv.mixLinearLoop",
+      "full_name": "ef.mixingEnv.mixLinearLoop",
+      "args": [
+        "N",
+        "C",
+        "m"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "mixingEnv mixLinearLoop filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "ef.mixingEnv.mixPowerClamp": {
+      "prefix": "ef",
+      "name": "mixingEnv.mixPowerClamp",
+      "full_name": "ef.mixingEnv.mixPowerClamp",
+      "args": [
+        "N",
+        "C",
+        "m"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "mixingEnv mixPowerClamp filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "ef.mixingEnv.mixPowerLoop": {
+      "prefix": "ef",
+      "name": "mixingEnv.mixPowerLoop",
+      "full_name": "ef.mixingEnv.mixPowerLoop",
+      "args": [
+        "N",
+        "C",
+        "m"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "mixingEnv mixPowerLoop filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "ef.nonlinearityEnv.makeOdd": {
+      "prefix": "ef",
+      "name": "nonlinearityEnv.makeOdd",
+      "full_name": "ef.nonlinearityEnv.makeOdd",
+      "args": [
+        "f",
+        "x"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "nonlinearityEnv makeOdd filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "ef.nonlinearityEnv.wavefold": {
+      "prefix": "ef",
+      "name": "nonlinearityEnv.wavefold",
+      "full_name": "ef.nonlinearityEnv.wavefold",
+      "args": [
+        "width",
+        "x"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "nonlinearityEnv wavefold filter",
+      "param_docs": {},
+      "example": ""
+    },
     "mo.shockTrigger": {
       "prefix": "mo",
       "name": "shockTrigger",
@@ -11336,6 +12260,394 @@
         "freq": "frequency in Hz"
       },
       "example": "os = library(\"oscillators.lib\");\npolyblep_triangle_test = os.polyblep_triangle(220);"
+    },
+    "os.dsf.Nq": {
+      "prefix": "os",
+      "name": "dsf.Nq",
+      "full_name": "os.dsf.Nq",
+      "args": [
+        "f0",
+        "df"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "dsf Nq filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "os.dsf.oscc": {
+      "prefix": "os",
+      "name": "dsf.oscc",
+      "full_name": "os.dsf.oscc",
+      "args": [
+        "f0",
+        "df",
+        "a"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "dsf oscc filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "os.dsf.oscs": {
+      "prefix": "os",
+      "name": "dsf.oscs",
+      "full_name": "os.dsf.oscs",
+      "args": [
+        "f0",
+        "df",
+        "a"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "dsf oscs filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "os.dsf.osccN": {
+      "prefix": "os",
+      "name": "dsf.osccN",
+      "full_name": "os.dsf.osccN",
+      "args": [
+        "f0",
+        "df",
+        "a",
+        "n"
+      ],
+      "arg_count": 4,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "dsf osccN filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "os.dsf.oscsN": {
+      "prefix": "os",
+      "name": "dsf.oscsN",
+      "full_name": "os.dsf.oscsN",
+      "args": [
+        "f0",
+        "df",
+        "a",
+        "n"
+      ],
+      "arg_count": 4,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "dsf oscsN filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "os.dsf.osccNq": {
+      "prefix": "os",
+      "name": "dsf.osccNq",
+      "full_name": "os.dsf.osccNq",
+      "args": [
+        "f0",
+        "df",
+        "a"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "dsf osccNq filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "os.dsf.oscsNq": {
+      "prefix": "os",
+      "name": "dsf.oscsNq",
+      "full_name": "os.dsf.oscsNq",
+      "args": [
+        "f0",
+        "df",
+        "a"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "dsf oscsNq filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "os.CZ.saw": {
+      "prefix": "os",
+      "name": "CZ.saw",
+      "full_name": "os.CZ.saw",
+      "args": [
+        "fund",
+        "index"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "CZ saw filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "os.CZ.sawP": {
+      "prefix": "os",
+      "name": "CZ.sawP",
+      "full_name": "os.CZ.sawP",
+      "args": [
+        "fund",
+        "index"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "CZ sawP filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "os.CZ.sawChooseP": {
+      "prefix": "os",
+      "name": "CZ.sawChooseP",
+      "full_name": "os.CZ.sawChooseP",
+      "args": [
+        "fund",
+        "index",
+        "p"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "CZ sawChooseP filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "os.CZ.square": {
+      "prefix": "os",
+      "name": "CZ.square",
+      "full_name": "os.CZ.square",
+      "args": [
+        "fund",
+        "index"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "CZ square filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "os.CZ.squareP": {
+      "prefix": "os",
+      "name": "CZ.squareP",
+      "full_name": "os.CZ.squareP",
+      "args": [
+        "fund",
+        "index"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "CZ squareP filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "os.CZ.squareChooseP": {
+      "prefix": "os",
+      "name": "CZ.squareChooseP",
+      "full_name": "os.CZ.squareChooseP",
+      "args": [
+        "fund",
+        "index",
+        "p"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "CZ squareChooseP filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "os.CZ.pulse": {
+      "prefix": "os",
+      "name": "CZ.pulse",
+      "full_name": "os.CZ.pulse",
+      "args": [
+        "fund",
+        "index"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "CZ pulse filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "os.CZ.pulseP": {
+      "prefix": "os",
+      "name": "CZ.pulseP",
+      "full_name": "os.CZ.pulseP",
+      "args": [
+        "fund",
+        "index"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "CZ pulseP filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "os.CZ.pulseChooseP": {
+      "prefix": "os",
+      "name": "CZ.pulseChooseP",
+      "full_name": "os.CZ.pulseChooseP",
+      "args": [
+        "fund",
+        "index",
+        "p"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "CZ pulseChooseP filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "os.CZ.sinePulse": {
+      "prefix": "os",
+      "name": "CZ.sinePulse",
+      "full_name": "os.CZ.sinePulse",
+      "args": [
+        "fund",
+        "index"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "CZ sinePulse filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "os.CZ.sinePulseP": {
+      "prefix": "os",
+      "name": "CZ.sinePulseP",
+      "full_name": "os.CZ.sinePulseP",
+      "args": [
+        "fund",
+        "index"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "CZ sinePulseP filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "os.CZ.sinePulseChooseP": {
+      "prefix": "os",
+      "name": "CZ.sinePulseChooseP",
+      "full_name": "os.CZ.sinePulseChooseP",
+      "args": [
+        "fund",
+        "index",
+        "p"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "CZ sinePulseChooseP filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "os.CZ.halfSine": {
+      "prefix": "os",
+      "name": "CZ.halfSine",
+      "full_name": "os.CZ.halfSine",
+      "args": [
+        "fund",
+        "index"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "CZ halfSine filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "os.CZ.halfSineP": {
+      "prefix": "os",
+      "name": "CZ.halfSineP",
+      "full_name": "os.CZ.halfSineP",
+      "args": [
+        "fund",
+        "index"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "CZ halfSineP filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "os.CZ.halfSineChooseP": {
+      "prefix": "os",
+      "name": "CZ.halfSineChooseP",
+      "full_name": "os.CZ.halfSineChooseP",
+      "args": [
+        "fund",
+        "index",
+        "p"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "CZ halfSineChooseP filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "os.CZ.resSaw": {
+      "prefix": "os",
+      "name": "CZ.resSaw",
+      "full_name": "os.CZ.resSaw",
+      "args": [
+        "fund",
+        "res"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "CZ resSaw filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "os.CZ.resTriangle": {
+      "prefix": "os",
+      "name": "CZ.resTriangle",
+      "full_name": "os.CZ.resTriangle",
+      "args": [
+        "fund",
+        "res"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "CZ resTriangle filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "os.CZ.resTrap": {
+      "prefix": "os",
+      "name": "CZ.resTrap",
+      "full_name": "os.CZ.resTrap",
+      "args": [
+        "fund",
+        "res"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "CZ resTrap filter",
+      "param_docs": {},
+      "example": ""
     },
     "pf.flanger_mono": {
       "prefix": "pf",
@@ -14109,6 +15421,48 @@
       },
       "example": "pm = library(\"physmodels.lib\");\nma = library(\"maths.lib\");\nrk_solve_test = pm.rk_solve((0), (1), 1, 1.0/ma.SR, eq, (1)) with { eq(t,x) = -x; };"
     },
+    "pm.formantValues.f": {
+      "prefix": "pm",
+      "name": "formantValues.f",
+      "full_name": "pm.formantValues.f",
+      "args": [
+        "4"
+      ],
+      "arg_count": 1,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "formantValues f filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "pm.formantValues.g": {
+      "prefix": "pm",
+      "name": "formantValues.g",
+      "full_name": "pm.formantValues.g",
+      "args": [
+        "4"
+      ],
+      "arg_count": 1,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "formantValues g filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "pm.formantValues.bw": {
+      "prefix": "pm",
+      "name": "formantValues.bw",
+      "full_name": "pm.formantValues.bw",
+      "args": [
+        "4"
+      ],
+      "arg_count": 1,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "formantValues bw filter",
+      "param_docs": {},
+      "example": ""
+    },
     "pl.SR": {
       "prefix": "pl",
       "name": "SR",
@@ -14401,6 +15755,125 @@
         "rf": "frequency of the root note of the scale"
       },
       "example": "qu = library(\"quantizers.lib\");\npenta_test = qu.quantize(220, qu.penta, 260);"
+    },
+    "qu.quantizer.smoothCurve": {
+      "prefix": "qu",
+      "name": "quantizer.smoothCurve",
+      "full_name": "qu.quantizer.smoothCurve",
+      "args": [
+        "x"
+      ],
+      "arg_count": 1,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "quantizer smoothCurve filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "qu.quantizer.getOctave": {
+      "prefix": "qu",
+      "name": "quantizer.getOctave",
+      "full_name": "qu.quantizer.getOctave",
+      "args": [
+        "freq",
+        "rf"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "quantizer getOctave filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "qu.quantizer.normalizedRatio": {
+      "prefix": "qu",
+      "name": "quantizer.normalizedRatio",
+      "full_name": "qu.quantizer.normalizedRatio",
+      "args": [
+        "freq",
+        "rf"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "quantizer normalizedRatio filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "qu.quantizer.findClosestRatio": {
+      "prefix": "qu",
+      "name": "quantizer.findClosestRatio",
+      "full_name": "qu.quantizer.findClosestRatio",
+      "args": [
+        "freq",
+        "rf",
+        "nl"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "quantizer findClosestRatio filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "qu.quantizer.findRatio": {
+      "prefix": "qu",
+      "name": "quantizer.findRatio",
+      "full_name": "qu.quantizer.findRatio",
+      "args": [
+        "n"
+      ],
+      "arg_count": 1,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "quantizer findRatio filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "qu.quantizer.smoothInterpolation": {
+      "prefix": "qu",
+      "name": "quantizer.smoothInterpolation",
+      "full_name": "qu.quantizer.smoothInterpolation",
+      "args": [
+        "freq",
+        "rf",
+        "nl"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "quantizer smoothInterpolation filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "qu.quantizer.smoothRatio": {
+      "prefix": "qu",
+      "name": "quantizer.smoothRatio",
+      "full_name": "qu.quantizer.smoothRatio",
+      "args": [
+        "n"
+      ],
+      "arg_count": 1,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "quantizer smoothRatio filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "qu.quantizer.interpolateBetween": {
+      "prefix": "qu",
+      "name": "quantizer.interpolateBetween",
+      "full_name": "qu.quantizer.interpolateBetween",
+      "args": [
+        "ratio1",
+        "ratio2"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "quantizer interpolateBetween filter",
+      "param_docs": {},
+      "example": ""
     },
     "rm.parReduce": {
       "prefix": "rm",
@@ -14836,6 +16309,134 @@
         "springs": "spacing preset between spring delays (0 = left, 1 = right, 2 = middle)"
       },
       "example": "re = library(\"reverbs.lib\");\nos = library(\"oscillators.lib\");\nspringreverb_test = os.osc(330)\n: re.springreverb(0.5, 0.5, 0.5, 0.5, 1);"
+    },
+    "re.jp_gh_rev.diffuser_aux": {
+      "prefix": "re",
+      "name": "jp_gh_rev.diffuser_aux",
+      "full_name": "re.jp_gh_rev.diffuser_aux",
+      "args": [
+        "angle",
+        "g",
+        "scale1",
+        "scale2",
+        "size",
+        "block"
+      ],
+      "arg_count": 6,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "jp_gh_rev diffuser_aux filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "re.jp_gh_rev.diffuser": {
+      "prefix": "re",
+      "name": "jp_gh_rev.diffuser",
+      "full_name": "re.jp_gh_rev.diffuser",
+      "args": [
+        "angle",
+        "g",
+        "scale1",
+        "scale2",
+        "size"
+      ],
+      "arg_count": 5,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "jp_gh_rev diffuser filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "re.jp_gh_rev.diffuser_nested": {
+      "prefix": "re",
+      "name": "jp_gh_rev.diffuser_nested",
+      "full_name": "re.jp_gh_rev.diffuser_nested",
+      "args": [
+        "N",
+        "angle",
+        "g",
+        "scale",
+        "size"
+      ],
+      "arg_count": 5,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "jp_gh_rev diffuser_nested filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "re.jp_gh_rev.smooth_init": {
+      "prefix": "re",
+      "name": "jp_gh_rev.smooth_init",
+      "full_name": "re.jp_gh_rev.smooth_init",
+      "args": [
+        "s",
+        "default"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "jp_gh_rev smooth_init filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "re.jp_gh_rev.jpverb": {
+      "prefix": "re",
+      "name": "jp_gh_rev.jpverb",
+      "full_name": "re.jp_gh_rev.jpverb",
+      "args": [
+        "t60",
+        "damp",
+        "size",
+        "early_diff",
+        "mod_depth",
+        "mod_freq",
+        "low",
+        "mid",
+        "high",
+        "low_cutoff",
+        "high_cutoff"
+      ],
+      "arg_count": 11,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "jp_gh_rev jpverb filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "re.jp_gh_rev.greyhole": {
+      "prefix": "re",
+      "name": "jp_gh_rev.greyhole",
+      "full_name": "re.jp_gh_rev.greyhole",
+      "args": [
+        "dt",
+        "damp",
+        "size",
+        "early_diff",
+        "feedback",
+        "mod_depth",
+        "mod_freq"
+      ],
+      "arg_count": 7,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "jp_gh_rev greyhole filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "re.jp_gh_rev.linear_interp": {
+      "prefix": "re",
+      "name": "jp_gh_rev.linear_interp",
+      "full_name": "re.jp_gh_rev.linear_interp",
+      "args": [
+        "x"
+      ],
+      "arg_count": 1,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "jp_gh_rev linear_interp filter",
+      "param_docs": {},
+      "example": ""
     },
     "ro.cross": {
       "prefix": "ro",
@@ -15388,6 +16989,168 @@
         "level": "the volume between 0 and n"
       },
       "example": "so = library(\"soundfiles.lib\");\nsf = soundfile(\"sound[url:{'tests/assets/silence.wav'}]\", 1);\nloop_speed_level_test = so.loop_speed_level(\nsf,\n0,\nhslider(\"loop_speed_level:speed\", 1, 0, 2, 0.01),\nhslider(\"loop_speed_level:level\", 0.5, 0, 1, 0.01)\n);"
+    },
+    "so.super.length": {
+      "prefix": "so",
+      "name": "super.length",
+      "full_name": "so.super.length",
+      "args": [
+        "sf",
+        "part"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "super length filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "so.super.srate": {
+      "prefix": "so",
+      "name": "super.srate",
+      "full_name": "so.super.srate",
+      "args": [
+        "sf",
+        "part"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "super srate filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "so.super.outs": {
+      "prefix": "so",
+      "name": "super.outs",
+      "full_name": "so.super.outs",
+      "args": [
+        "sf",
+        "level"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "super outs filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "so.super.player": {
+      "prefix": "so",
+      "name": "super.player",
+      "full_name": "so.super.player",
+      "args": [
+        "sf",
+        "part",
+        "reader",
+        "level"
+      ],
+      "arg_count": 4,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "super player filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "so.super.player_interp": {
+      "prefix": "so",
+      "name": "super.player_interp",
+      "full_name": "so.super.player_interp",
+      "args": [
+        "sf",
+        "part",
+        "reader",
+        "level",
+        "selector"
+      ],
+      "arg_count": 5,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "super player_interp filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "so.super.gen": {
+      "prefix": "so",
+      "name": "super.gen",
+      "full_name": "so.super.gen",
+      "args": [
+        "idx"
+      ],
+      "arg_count": 1,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "super gen filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "so.super.play_interp": {
+      "prefix": "so",
+      "name": "super.play_interp",
+      "full_name": "so.super.play_interp",
+      "args": [
+        "sf",
+        "part",
+        "ref",
+        "freq",
+        "level",
+        "gate",
+        "selector"
+      ],
+      "arg_count": 7,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "super play_interp filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "so.super.loop_speed_level": {
+      "prefix": "so",
+      "name": "super.loop_speed_level",
+      "full_name": "so.super.loop_speed_level",
+      "args": [
+        "sf",
+        "part",
+        "speed",
+        "level"
+      ],
+      "arg_count": 4,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "super loop_speed_level filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "so.super.loop_speed": {
+      "prefix": "so",
+      "name": "super.loop_speed",
+      "full_name": "so.super.loop_speed",
+      "args": [
+        "sf",
+        "part",
+        "speed"
+      ],
+      "arg_count": 3,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "super loop_speed filter",
+      "param_docs": {},
+      "example": ""
+    },
+    "so.super.loop": {
+      "prefix": "so",
+      "name": "super.loop",
+      "full_name": "so.super.loop",
+      "args": [
+        "sf",
+        "part"
+      ],
+      "arg_count": 2,
+      "inputs": 1,
+      "outputs": 1,
+      "description": "super loop filter",
+      "param_docs": {},
+      "example": ""
     },
     "sp.panner": {
       "prefix": "sp",
