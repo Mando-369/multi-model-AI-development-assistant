@@ -315,26 +315,21 @@ else
     echo "  Realtime audio will be unavailable"
 fi
 
-# Download sample documentation
-print_header "Downloading Sample Documentation"
+# Initialize FAUST Libraries (for ChromaDB knowledge base)
+print_header "Setting up FAUST Libraries"
 
-# FAUST sample
-if [ ! -f "faust_documentation/basics.md" ]; then
-    cat > faust_documentation/basics.md << 'EOF'
-# FAUST Basics
+# Initialize git submodule for faustlibraries
+if [ -f ".gitmodules" ] && grep -q "faustlibraries" .gitmodules; then
+    print_warning "Initializing faustlibraries submodule..."
+    git submodule update --init --recursive faust_documentation/faustlibraries
+    print_success "faustlibraries submodule initialized"
 
-FAUST (Functional Audio Stream) is a functional programming language for sound synthesis and audio processing.
-
-## Basic Syntax
-```faust
-// Simple sine oscillator
-process = os.osc(440);
-
-// Volume control
-process = os.osc(440) * hslider("volume", 0.5, 0, 1, 0.01);
-```
-EOF
-    print_success "Created sample FAUST documentation"
+    # Show library count
+    LIB_COUNT=$(ls faust_documentation/faustlibraries/*.lib 2>/dev/null | wc -l | tr -d ' ')
+    print_success "Found $LIB_COUNT FAUST library files"
+else
+    print_warning "faustlibraries submodule not configured"
+    echo "  Run: git submodule add https://github.com/grame-cncm/faustlibraries.git faust_documentation/faustlibraries"
 fi
 
 # Create run script

@@ -1003,6 +1003,10 @@ FAUST library prefixes:
 - no: noises (noise, pink_noise, lfnoise)
 - ve: virtual analog (moog_vcf, oberheim)
 - sp: spats (panner, spat)
+- wd: wave digital filters (resistor, capacitor, buildtree)
+- pm: physical models (pm_chain, waveguide)
+- fd: finite difference schemes (model, mesh)
+- sy: synths (combString, dubDub, fm)
 
 Return ONLY:
 1. Library prefixes likely needed (e.g., "en", "os", "fi")

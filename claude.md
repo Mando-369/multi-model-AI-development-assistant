@@ -46,7 +46,7 @@ All agents see: `Agent Prompt → PROJECT_META.md → Agent Meta → Last Exchan
 | 🎛️ Analyze | Compile + metrics | :8765 analysis |
 | ▶️ Run | Live playback | :8000 realtime |
 
-### FAUST Validator (v2.4)
+### FAUST Validator (v2.5)
 Two-tier knowledge system that helps the AI generate correct FAUST code:
 
 **Tier 1: Bible (Quick Lookup)**
@@ -55,9 +55,14 @@ Two-tier knowledge system that helps the AI generate correct FAUST code:
 - Catches: wrong arg counts, unknown functions, recursive definitions
 
 **Tier 2: ChromaDB (Deep Search)**
-- `faust_docs.md` - 648KB full library documentation
-- Semantic search via embeddings
-- Load via Knowledge Base tab → "Load Bible Docs"
+- `faust_documentation/faustlibraries/` - git submodule with all .lib source files
+- Load via Knowledge Base tab → "Load FAUST Libraries"
+- Semantic search via embeddings on original library source code
+
+**Setup:**
+```bash
+git submodule update --init  # Initialize faustlibraries
+```
 
 **Validation Flow:**
 ```
@@ -72,9 +77,9 @@ Request → Bible lookup → Inject signatures → Generate → Validate → (au
 - Missing imports
 
 ### Key Files
+- `faust_documentation/faustlibraries/` - FAUST libraries (git submodule)
 - `src/faust_validator/` - Validator module
 - `src/faust_validator/static/faust_bible.json` - Function signatures + examples
-- `src/faust_validator/static/faust_docs.md` - Full docs for ChromaDB
 - `src/core/multi_model_system.py` - `_get_faust_bible_context()` method
 - `src/ui/editor_ui.py` - `_validate_and_retry_faust()` method
 

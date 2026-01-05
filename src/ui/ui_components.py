@@ -805,36 +805,131 @@ def render_faust_docs_section(glm_system):
     """Render FAUST documentation section"""
     st.subheader("🎵 FAUST Documentation")
 
-    if st.button("📖 Load FAUST Library Docs", help="Load 951 functions with signatures, parameters, and examples (648KB)"):
-        with st.spinner("Loading FAUST bible docs..."):
-            result = glm_system.file_processor.load_faust_bible_docs()
+    if st.button("📖 Load FAUST Libraries", help="Load .lib files directly from faustlibraries submodule"):
+        with st.spinner("Loading FAUST libraries..."):
+            result = glm_system.file_processor.load_faust_libraries()
         st.success(result)
 
-    st.caption("Source: faustlibraries (parsed from .lib files)")
+    st.caption("Source: faust_documentation/faustlibraries/ (git submodule)")
+
+
+def _expand_faust_query(query: str) -> str:
+    """Expand search query with FAUST library aliases for better matching."""
+    # Map common terms to library prefixes
+    LIBRARY_ALIASES = {
+        "wave digital": "wd. wdmodels wave digital filter",
+        "analyzer": "an. analyzers",
+        "basic": "ba. basics",
+        "compressor": "co. compressors",
+        "delay": "de. delays",
+        "demo": "dm. demos",
+        "dx7": "dx. dx7",
+        "envelope": "en. envelopes adsr asr",
+        "filter": "fi. filters lowpass highpass bandpass",
+        "fds": "fd. finite difference schemes",
+        "miscellaneous": "mi. mi. misceffects",
+        "effects": "ef. misceffects",
+        "noise": "no. noises",
+        "oscillator": "os. oscillators",
+        "phaflangers": "pf. phaflangers",
+        "physical model": "pm. physmodels",
+        "quantize": "qu. quantizers",
+        "reverb": "re. reverbs",
+        "route": "ro. routes",
+        "signal": "si. signals",
+        "soundfile": "sf. soundfiles",
+        "synth": "sp. spat sy. synths",
+        "spatial": "sp. spat",
+        "interpolation": "it. interpolators",
+        "vaeffect": "ve. vaeffects moog",
+        "virtual analog": "ve. vaeffects",
+        "version": "vl. version",
+        "wah": "wa. webaudio",
+    }
+
+    expanded = query.lower()
+    additions = []
+
+    for term, aliases in LIBRARY_ALIASES.items():
+        if term in expanded:
+            additions.append(aliases)
+
+    if additions:
+        return f"{query} {' '.join(additions)}"
+    return query
 
 
 def render_knowledge_search(glm_system):
-    """Render knowledge base search interface"""
+    """Render knowledge base search interface with AI-powered search"""
     st.subheader("🔍 Search Knowledge Base")
 
     # Search input
     search_query = st.text_input(
         "Search query",
-        placeholder="e.g., adsr envelope, lowpass filter, oscillator...",
+        placeholder="e.g., wave digital filter, adsr envelope, moog filter...",
         key="kb_search_query"
     )
 
-    col1, col2 = st.columns([1, 3])
+    col1, col2, col3 = st.columns([1, 1, 2])
     with col1:
-        num_results = st.selectbox("Results", [3, 5, 10, 20], index=1, key="kb_num_results")
+        num_results = st.selectbox("Results", [5, 10, 20], index=0, key="kb_num_results")
     with col2:
+        use_ai = st.checkbox("🤖 AI Search", value=True, help="Use AI to understand intent and filter by library")
+    with col3:
         search_clicked = st.button("🔍 Search", key="kb_search_btn")
 
     if search_clicked and search_query.strip():
         with st.spinner(f"Searching for '{search_query}'..."):
             try:
-                # Direct similarity search
-                results = glm_system.vectorstore.similarity_search(search_query, k=num_results)
+                filter_dict = None
+                search_terms = search_query
+
+                # AI-powered search: use fast model to identify relevant library
+                if use_ai:
+                    fast_model = glm_system.get_fast_model_name()
+                    llm = glm_system.get_model_instance(fast_model)
+
+                    if llm:
+                        # Ask AI to identify the library prefix
+                        ai_prompt = f"""Identify the FAUST library prefix for this query. Return ONLY the 2-letter prefix.
+
+FAUST libraries:
+- wd: wave digital filters (resistor, capacitor, inductor, diode, buildtree)
+- an: analyzers (rms, peak, amp_follower)
+- ba: basics (if, select, beat)
+- co: compressors (limiter, compressor)
+- de: delays (delay, fdelay)
+- en: envelopes (adsr, asr, ar)
+- fi: filters (lowpass, highpass, bandpass, resonlp)
+- ef: effects (echo, flanger, chorus)
+- no: noises (noise, pink_noise)
+- os: oscillators (osc, saw, square, triangle)
+- pm: physical models (waveguide, chain)
+- re: reverbs (freeverb, jcrev)
+- ve: virtual analog (moog_vcf, oberheim)
+- sy: synths (dubDub, fm)
+
+Query: {search_query}
+
+Return ONLY the 2-letter prefix (e.g., "wd" or "fi"), nothing else:"""
+
+                        response = llm.invoke(ai_prompt).strip().lower()
+                        # Extract just the prefix
+                        prefix = response[:2] if len(response) >= 2 else None
+
+                        if prefix and prefix.isalpha():
+                            filter_dict = {"library": prefix}
+                            st.caption(f"🤖 AI detected library: **{prefix}**")
+
+                # Search with optional filter
+                if filter_dict:
+                    results = glm_system.vectorstore.similarity_search(
+                        search_query,
+                        k=num_results,
+                        filter=filter_dict
+                    )
+                else:
+                    results = glm_system.vectorstore.similarity_search(search_query, k=num_results)
 
                 if results:
                     st.success(f"Found {len(results)} results")
@@ -865,7 +960,7 @@ def render_knowledge_search(glm_system):
                             else:
                                 st.markdown(content)
                 else:
-                    st.warning("No results found. Try different keywords.")
+                    st.warning("No results found. Try different keywords or disable AI filter.")
 
             except Exception as e:
                 st.error(f"Search error: {e}")
@@ -892,7 +987,7 @@ def render_knowledge_search(glm_system):
                     if db_path.exists():
                         shutil.rmtree(db_path)
                         st.success("✅ Database cleared. Restart app to reinitialize.")
-                        st.info("Then click 'Load Bible Docs' to reload.")
+                        st.info("Then click 'Load FAUST Libraries' to reload.")
                     else:
                         st.info("Database already empty")
                 except Exception as e:

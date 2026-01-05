@@ -166,65 +166,121 @@ class FileProcessor:
 
         return summary
 
-    def load_faust_bible_docs(self):
-        """Load the complete FAUST library documentation from faust_docs.md.
+    def load_faust_libraries(self):
+        """Load FAUST .lib files directly from faustlibraries submodule.
 
         This provides deep semantic search for all FAUST functions,
-        examples, and library documentation.
+        examples, and library documentation from the source files.
         """
-        docs_file = Path(__file__).parent.parent / "faust_validator" / "static" / "faust_docs.md"
+        import re
 
-        if not docs_file.exists():
-            return "❌ faust_docs.md not found. Run docs_extractor.py first."
+        # Path to faustlibraries submodule
+        libs_dir = Path(__file__).parent.parent.parent / "faust_documentation" / "faustlibraries"
 
-        try:
-            content = docs_file.read_text(encoding='utf-8')
+        if not libs_dir.exists():
+            return "❌ faustlibraries not found. Run: git submodule update --init"
 
-            # Split by function headers (## prefix.func)
-            import re
-            chunks = re.split(r'\n(?=## \w+\.?\w*\n)', content)
+        # Library prefix mapping
+        LIB_PREFIXES = {
+            "aanl.lib": "aa",
+            "analyzers.lib": "an",
+            "basics.lib": "ba",
+            "compressors.lib": "co",
+            "delays.lib": "de",
+            "demos.lib": "dm",
+            "dx7.lib": "dx",
+            "envelopes.lib": "en",
+            "fds.lib": "fd",
+            "filters.lib": "fi",
+            "hoa.lib": "ho",
+            "instruments.lib": "in",
+            "interpolators.lib": "it",
+            "maths.lib": "ma",
+            "mi.lib": "mi",
+            "misceffects.lib": "ef",
+            "noises.lib": "no",
+            "oscillators.lib": "os",
+            "phaflangers.lib": "pf",
+            "physmodels.lib": "pm",
+            "quantizers.lib": "qu",
+            "reducemaps.lib": "rm",
+            "reverbs.lib": "re",
+            "routes.lib": "ro",
+            "signals.lib": "si",
+            "soundfiles.lib": "sf",
+            "spats.lib": "sp",
+            "stdfaust.lib": "sf",
+            "synths.lib": "sy",
+            "tonestacks.lib": "ts",
+            "tubes.lib": "tu",
+            "vaeffects.lib": "ve",
+            "version.lib": "vl",
+            "wdmodels.lib": "wd",
+            "webaudio.lib": "wa",
+        }
 
-            documents = []
-            for chunk in chunks:
-                if not chunk.strip():
-                    continue
+        documents = []
+        total_size = 0
 
-                # Extract function name from first line if present
-                first_line = chunk.split('\n')[0].strip()
-                func_name = first_line.lstrip('#').strip() if first_line.startswith('##') else "faust_docs"
+        for lib_file in libs_dir.glob("*.lib"):
+            try:
+                content = lib_file.read_text(encoding='utf-8')
+                total_size += len(content)
 
-                # Determine library from function name
-                lib_name = func_name.split('.')[0] if '.' in func_name else "general"
+                lib_name = lib_file.name
+                prefix = LIB_PREFIXES.get(lib_name, lib_name.replace('.lib', ''))
 
-                doc = Document(
-                    page_content=chunk.strip(),
-                    metadata={
-                        "source": "faust_bible_docs",
-                        "function": func_name,
-                        "library": lib_name,
-                        "type": "faust_library_reference",
-                        "category": "faust",
-                    }
-                )
-                documents.append(doc)
+                # Split by function documentation blocks (//--------)
+                # Each block typically documents one function
+                blocks = re.split(r'\n(?=//[-=]{20,})', content)
 
-            # Split large chunks further
-            splits = self.text_splitter.split_documents(documents)
+                for block in blocks:
+                    if not block.strip() or len(block.strip()) < 50:
+                        continue
 
-            # Add to vectorstore
-            self.vectorstore.add_documents(splits)
+                    # Try to extract function name from block
+                    func_match = re.search(r'\((\w+)\.\)(\w+)', block)
+                    if func_match:
+                        func_name = f"{func_match.group(1)}.{func_match.group(2)}"
+                    else:
+                        # Fallback: look for function definition
+                        def_match = re.search(r'^(\w+)\s*[=(]', block, re.MULTILINE)
+                        func_name = f"{prefix}.{def_match.group(1)}" if def_match else lib_name
 
-            return f"""✅ FAUST Library Docs Loaded!
+                    doc = Document(
+                        page_content=block.strip(),
+                        metadata={
+                            "source": f"faustlibraries/{lib_name}",
+                            "function": func_name,
+                            "library": prefix,
+                            "type": "faust_library_source",
+                            "category": "faust",
+                        }
+                    )
+                    documents.append(doc)
+
+            except Exception as e:
+                print(f"⚠️ Error reading {lib_file.name}: {e}")
+                continue
+
+        if not documents:
+            return "❌ No library content found"
+
+        # Split large chunks
+        splits = self.text_splitter.split_documents(documents)
+
+        # Add to vectorstore
+        self.vectorstore.add_documents(splits)
+
+        return f"""✅ FAUST Libraries Loaded!
 
 📊 Stats:
-- Functions documented: {len(documents)}
+- Library files: {len(list(libs_dir.glob('*.lib')))}
+- Documentation blocks: {len(documents)}
 - Chunks indexed: {len(splits)}
-- Source: faust_docs.md ({len(content) // 1024} KB)
+- Total size: {total_size // 1024} KB
 
-The FAUST agent now has deep knowledge of all library functions."""
-
-        except Exception as e:
-            return f"❌ Error loading FAUST docs: {e}"
+Source: faust_documentation/faustlibraries/ (git submodule)"""
 
     def get_folder_stats(self):
         """Get statistics about uploaded files by folder"""
