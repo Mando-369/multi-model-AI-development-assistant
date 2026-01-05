@@ -882,13 +882,51 @@ def render_knowledge_search(glm_system):
     elif search_clicked:
         st.warning("Enter a search query")
 
-    # Show database stats
-    with st.expander("📊 Database Stats"):
+    # Show database stats and management
+    with st.expander("📊 Database Stats & Management"):
         kb_status = glm_system.check_vectorstore_status()
         st.write(f"**Documents:** {kb_status.get('document_count', 0)}")
         st.write(f"**Status:** {kb_status.get('status', 'Unknown')}")
         if kb_status.get('test_count', 0) > 0:
             st.caption(f"({kb_status['test_count']} test documents excluded)")
+
+        st.write("---")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🗑️ Clear Database", help="Delete all documents from ChromaDB"):
+                try:
+                    import shutil
+                    from pathlib import Path
+                    db_path = Path("chroma_db")
+                    if db_path.exists():
+                        shutil.rmtree(db_path)
+                        st.success("✅ Database cleared. Restart app to reinitialize.")
+                        st.info("Then click 'Load Bible Docs' to reload.")
+                    else:
+                        st.info("Database already empty")
+                except Exception as e:
+                    st.error(f"Error: {e}")
+
+        with col2:
+            if st.button("🔄 Show Sources", help="List unique document sources"):
+                try:
+                    collection = glm_system.vectorstore._collection
+                    docs = collection.get(limit=100, include=['metadatas'])
+                    sources = {}
+                    for meta in docs['metadatas']:
+                        src = meta.get('source', 'unknown')
+                        # Shorten path
+                        short = src.split('/')[-1] if '/' in src else src
+                        sources[short] = sources.get(short, 0) + 1
+
+                    if sources:
+                        st.write("**Sources:**")
+                        for src, count in sorted(sources.items(), key=lambda x: -x[1])[:10]:
+                            st.caption(f"- {src}: {count} chunks")
+                    else:
+                        st.info("No documents found")
+                except Exception as e:
+                    st.error(f"Error: {e}")
 
 
 def render_model_status(glm_system):
