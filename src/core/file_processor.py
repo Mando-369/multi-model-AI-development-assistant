@@ -166,47 +166,6 @@ class FileProcessor:
 
         return summary
 
-    def load_faust_documentation(self):
-        """Load comprehensive FAUST documentation"""
-        faust_docs_dir = Path("./faust_documentation")
-        if not faust_docs_dir.exists():
-            return "❌ No FAUST documentation found. Run download_faust_docs_complete.py first."
-
-        processed_count = 0
-        library_count = 0
-        manual_count = 0
-
-        for doc_file in faust_docs_dir.glob("*.txt"):
-            try:
-                with open(doc_file, "r", encoding="utf-8") as f:
-                    first_lines = f.read(500)
-
-                if "faustlibraries.grame.fr" in first_lines:
-                    library_count += 1
-                    doc_type = "🔧 Library"
-                else:
-                    manual_count += 1
-                    doc_type = "📚 Manual"
-
-                result = self.process_file(str(doc_file))
-                processed_count += 1
-                print(f"✅ {doc_type}: {doc_file.name}")
-
-            except Exception as e:
-                print(f"❌ Error processing {doc_file}: {e}")
-
-        return f"""🎵 FAUST Documentation Loaded Successfully!
-
-📊 Processed {processed_count} files:
-🔧 Library docs: {library_count} files
-📚 Manual docs: {manual_count} files
-
-Your models now have access to:
-- Complete FAUST library reference
-- Language syntax and primitives
-- DSP algorithms and examples
-- Physical modeling techniques"""
-
     def load_faust_bible_docs(self):
         """Load the complete FAUST library documentation from faust_docs.md.
 

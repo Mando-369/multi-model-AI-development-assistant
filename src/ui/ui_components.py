@@ -805,21 +805,12 @@ def render_faust_docs_section(glm_system):
     """Render FAUST documentation section"""
     st.subheader("🎵 FAUST Documentation")
 
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("📖 Load Bible Docs", help="Load FAUST library reference (648KB, all functions with examples)"):
-            with st.spinner("Loading FAUST bible docs..."):
-                result = glm_system.file_processor.load_faust_bible_docs()
-            st.success(result)
+    if st.button("📖 Load FAUST Library Docs", help="Load 951 functions with signatures, parameters, and examples (648KB)"):
+        with st.spinner("Loading FAUST bible docs..."):
+            result = glm_system.file_processor.load_faust_bible_docs()
+        st.success(result)
 
-    with col2:
-        if st.button("📥 Load Manual Docs", help="Load downloaded FAUST manual/tutorials"):
-            with st.spinner("Loading FAUST documentation..."):
-                result = glm_system.file_processor.load_faust_documentation()
-            st.success(result)
-
-    if st.button("🌐 Download FAUST Docs"):
-        st.info("Run: python download_faust_docs_complete.py in your project directory")
+    st.caption("Source: faustlibraries (parsed from .lib files)")
 
 
 def render_knowledge_search(glm_system):
