@@ -463,6 +463,13 @@ Return ONLY the updated context file content, nothing else."""
                     context_parts.append(f"=== {agent_mode.upper()} SPECIALIST MODE ===\n{agent_prompt_addon}")
                     print(f"🎯 Using {agent_mode} specialist mode")
 
+                # 1b. FAUST agent: inject bible context with relevant function signatures
+                if agent_mode == "FAUST":
+                    bible_context, bible_keywords = self._get_faust_bible_context(question)
+                    if bible_context:
+                        context_parts.append(f"=== FAUST LIBRARY REFERENCE ===\n{bible_context}")
+                        print(f"📖 Bible context: {len(bible_keywords)} keyword groups")
+
                 # 2. Add PROJECT_META.md (project-level strategic context)
                 # This gives all agents visibility into the master plan
                 project_meta = self.project_meta_manager.read_project_meta(project_name)
@@ -604,6 +611,16 @@ Reference the knowledge base information when relevant."""
                 if agent_prompt_addon:
                     context_parts.append(f"=== {agent_mode.upper()} SPECIALIST MODE ===\n{agent_prompt_addon}")
                     yield f"[STATUS]🎯 Using {agent_mode} specialist mode"
+
+                # FAUST agent: inject bible context with relevant function signatures
+                if agent_mode == "FAUST":
+                    yield "[STATUS]📖 Looking up FAUST function signatures..."
+                    bible_context, bible_keywords = self._get_faust_bible_context(question)
+                    if bible_context:
+                        context_parts.append(f"=== FAUST LIBRARY REFERENCE ===\n{bible_context}")
+                        yield f"[STATUS]📖 Found {len(bible_keywords)} relevant function groups"
+                    else:
+                        yield "[STATUS]📖 No specific functions matched"
 
                 project_meta = self.project_meta_manager.read_project_meta(project_name)
                 if project_meta:
@@ -928,6 +945,155 @@ Keywords:"""
                 return self.vectorstore.similarity_search(question, k=max_docs), ["(fallback)"]
             except:
                 return [], []
+
+    def _get_faust_bible_context(self, question: str, max_functions: int = 15) -> tuple:
+        """Query FAUST bible for relevant function signatures based on user request.
+
+        Uses fast model to extract intent, then searches bible for matching functions.
+        This gives the AI correct function signatures BEFORE it generates code.
+
+        Args:
+            question: User's request/prompt
+            max_functions: Maximum functions to include
+
+        Returns:
+            Tuple of (formatted_context_string, extracted_keywords)
+        """
+        try:
+            import json
+            from pathlib import Path
+
+            # Load bible
+            bible_path = Path(__file__).parent.parent / "faust_validator" / "static" / "faust_bible.json"
+            if not bible_path.exists():
+                print("⚠️ FAUST bible not found")
+                return "", []
+
+            with open(bible_path) as f:
+                bible = json.load(f)
+
+            functions = bible.get("functions", {})
+            if not functions:
+                return "", []
+
+            # Use fast model to extract what user wants to build
+            fast_model = self.get_fast_model_name()
+            llm = self.get_model_instance(fast_model)
+
+            if not llm:
+                print("⚠️ Fast model not available for bible lookup")
+                return "", []
+
+            # Extract intent and relevant library prefixes
+            extract_prompt = f"""Analyze this FAUST DSP request and extract search terms.
+
+Request: {question}
+
+FAUST library prefixes:
+- en: envelopes (adsr, asr, ar, smoothEnvelope)
+- os: oscillators (osc, saw, square, triangle, noise)
+- fi: filters (lowpass, highpass, bandpass, resonlp)
+- ef: effects (echo, flanger, chorus, phaser)
+- de: delays (delay, fdelay, sdelay)
+- re: reverbs (mono_freeverb, stereo_freeverb, jcrev)
+- co: compressors (compressor_mono, limiter)
+- an: analyzers (amp_follower, rms_envelope)
+- ba: basics (if, select2, beat, tempo)
+- ma: maths (SR, PI, E, fabs)
+- no: noises (noise, pink_noise, lfnoise)
+- ve: virtual analog (moog_vcf, oberheim)
+- sp: spats (panner, spat)
+
+Return ONLY:
+1. Library prefixes likely needed (e.g., "en", "os", "fi")
+2. Specific function names if mentioned
+3. Key concepts (e.g., "envelope", "lowpass", "oscillator")
+
+Format as comma-separated list, nothing else:"""
+
+            response = llm.invoke(extract_prompt)
+
+            # Parse keywords from response
+            keywords = []
+            for item in response.strip().split(','):
+                kw = item.strip().lower().strip('-•*1234567890.()[]')
+                if kw and len(kw) > 1 and len(kw) < 30:
+                    keywords.append(kw)
+
+            keywords = keywords[:10]  # Limit
+
+            if not keywords:
+                print("⚠️ No keywords extracted from request")
+                return "", []
+
+            print(f"🎯 Bible keywords: {keywords}")
+
+            # Search bible for matching functions
+            relevant = []
+            seen = set()
+
+            for full_name, info in functions.items():
+                # Skip if already found
+                if full_name in seen:
+                    continue
+
+                # Get searchable text
+                prefix = info.get("prefix", "")
+                name = info.get("name", "")
+                desc = info.get("description", "").lower()
+
+                # Check for keyword matches
+                score = 0
+                for kw in keywords:
+                    # Prefix match (high priority)
+                    if kw == prefix:
+                        score += 3
+                    # Function name contains keyword
+                    if kw in name.lower():
+                        score += 2
+                    # Description contains keyword
+                    if kw in desc:
+                        score += 1
+                    # Full name match
+                    if kw in full_name.lower():
+                        score += 2
+
+                if score > 0:
+                    args = info.get("args", [])
+                    arg_str = ", ".join(args) if args else ""
+                    desc_short = info.get("description", "")[:60]
+                    relevant.append((score, full_name, arg_str, desc_short))
+                    seen.add(full_name)
+
+            # Sort by score and take top N
+            relevant.sort(key=lambda x: -x[0])
+            top_funcs = relevant[:max_functions]
+
+            if not top_funcs:
+                print("⚠️ No matching functions found in bible")
+                return "", keywords
+
+            # Format for injection
+            lines = ["## FAUST Functions (use these exact signatures):"]
+            lines.append("```")
+            for _, name, args, desc in top_funcs:
+                if args:
+                    lines.append(f"{name}({args}) - {desc}")
+                else:
+                    lines.append(f"{name} - {desc}")
+            lines.append("```")
+            lines.append("")
+            lines.append("IMPORTANT: Use these exact function names and argument counts.")
+            lines.append("Common mistake: en.adsr needs 5 args (at, dt, sl, rt, t) not 4!")
+
+            context = "\n".join(lines)
+            print(f"📖 Bible context: {len(top_funcs)} functions for {keywords}")
+
+            return context, keywords
+
+        except Exception as e:
+            print(f"❌ Bible lookup error: {e}")
+            return "", []
 
     def _smart_doc_retrieval(self, question: str, agent_mode: str, max_docs: int = 5) -> List:
         """Use fast AI to extract search keywords, then query ChromaDB.

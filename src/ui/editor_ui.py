@@ -571,6 +571,14 @@ Output the modified file in a code block:
                     full_response, file_data["language"]
                 )
 
+                # FAUST files: validate and auto-retry if errors
+                is_faust = Path(file_path).suffix.lower() in [".dsp", ".fst", ".lib"]
+                if is_faust and ai_content.strip():
+                    ai_content = self._validate_and_retry_faust(
+                        ai_content, prompt, model_name, use_context, project_name, agent_mode,
+                        file_data, status_placeholder, response_placeholder
+                    )
+
                 # Store pending changes in session state (will be shown by render_ai_integration)
                 st.session_state[pending_key] = ai_content
                 st.session_state[pending_response_key] = self._format_thinking_display(full_response)
@@ -580,6 +588,98 @@ Output the modified file in a code block:
 
         except Exception as e:
             st.error(f"Error applying AI: {e}")
+
+    def _validate_and_retry_faust(
+        self, code: str, original_prompt: str, model_name: str,
+        use_context: bool, project_name: str, agent_mode: str,
+        file_data: dict, status_placeholder, response_placeholder,
+        max_retries: int = 2
+    ) -> str:
+        """Validate FAUST code and auto-retry with error feedback if invalid.
+
+        Args:
+            code: Generated FAUST code to validate
+            original_prompt: Original user request
+            model_name: Model to use for retry
+            use_context: Whether to use context
+            project_name: Project name
+            agent_mode: Agent mode (should be FAUST)
+            file_data: File data dict
+            status_placeholder: Streamlit placeholder for status
+            response_placeholder: Streamlit placeholder for response
+            max_retries: Maximum retry attempts
+
+        Returns:
+            Validated code (or last attempt if all retries fail)
+        """
+        from src.faust_validator import validate
+
+        current_code = code
+        attempt = 0
+
+        while attempt < max_retries:
+            # Validate current code
+            result = validate(current_code)
+
+            if result.valid:
+                if attempt > 0:
+                    st.success(f"✅ Code fixed after {attempt} retry(s)!")
+                else:
+                    st.success("✅ FAUST validation passed")
+                return current_code
+
+            # Show validation errors
+            attempt += 1
+            st.warning(f"⚠️ Validation failed - auto-retry {attempt}/{max_retries}")
+
+            # Format errors for LLM
+            error_feedback = result.format_for_llm()
+            st.code(error_feedback, language="text")
+
+            if attempt >= max_retries:
+                st.error("❌ Max retries reached - returning code with errors")
+                st.info("Fix the errors manually or try again")
+                return current_code
+
+            # Build retry prompt with error feedback
+            retry_prompt = f"""Fix this FAUST code. The validator found these errors:
+
+{error_feedback}
+
+Original code:
+```faust
+{current_code}
+```
+
+RULES:
+- Fix ONLY the specific errors listed above
+- Keep everything else exactly the same
+- Use the correct function signatures from the FAUST library reference
+- Return the complete fixed code
+
+Fixed code:
+```faust
+"""
+
+            # Stream retry response
+            status_placeholder.markdown(f"- 🔄 Retry {attempt}: Fixing validation errors...")
+
+            retry_response = ""
+            for chunk in self.multi_glm_system.stream_chat_response(
+                retry_prompt, model_name, use_context, project_name, agent_mode
+            ):
+                if not chunk.startswith("[STATUS]") and chunk != "[STREAM_START]":
+                    retry_response += chunk
+                    response_placeholder.markdown(self._format_thinking_display(retry_response))
+
+            # Extract fixed code
+            current_code = self.extract_code_from_response(retry_response, file_data["language"])
+
+            if not current_code.strip():
+                st.error("❌ Retry produced empty code")
+                return code  # Return original
+
+        return current_code
 
     def _format_thinking_display(self, text: str) -> str:
         """Format response showing thinking tags nicely"""
