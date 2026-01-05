@@ -804,10 +804,19 @@ def render_bulk_operations(glm_system):
 def render_faust_docs_section(glm_system):
     """Render FAUST documentation section"""
     st.subheader("🎵 FAUST Documentation")
-    if st.button("📥 Load FAUST Docs"):
-        with st.spinner("Loading FAUST documentation..."):
-            result = glm_system.file_processor.load_faust_documentation()
-        st.success(result)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("📖 Load Bible Docs", help="Load FAUST library reference (648KB, all functions with examples)"):
+            with st.spinner("Loading FAUST bible docs..."):
+                result = glm_system.file_processor.load_faust_bible_docs()
+            st.success(result)
+
+    with col2:
+        if st.button("📥 Load Manual Docs", help="Load downloaded FAUST manual/tutorials"):
+            with st.spinner("Loading FAUST documentation..."):
+                result = glm_system.file_processor.load_faust_documentation()
+            st.success(result)
 
     if st.button("🌐 Download FAUST Docs"):
         st.info("Run: python download_faust_docs_complete.py in your project directory")

@@ -207,6 +207,66 @@ Your models now have access to:
 - DSP algorithms and examples
 - Physical modeling techniques"""
 
+    def load_faust_bible_docs(self):
+        """Load the complete FAUST library documentation from faust_docs.md.
+
+        This provides deep semantic search for all FAUST functions,
+        examples, and library documentation.
+        """
+        docs_file = Path(__file__).parent.parent / "faust_validator" / "static" / "faust_docs.md"
+
+        if not docs_file.exists():
+            return "❌ faust_docs.md not found. Run docs_extractor.py first."
+
+        try:
+            content = docs_file.read_text(encoding='utf-8')
+
+            # Split by function headers (## prefix.func)
+            import re
+            chunks = re.split(r'\n(?=## \w+\.?\w*\n)', content)
+
+            documents = []
+            for chunk in chunks:
+                if not chunk.strip():
+                    continue
+
+                # Extract function name from first line if present
+                first_line = chunk.split('\n')[0].strip()
+                func_name = first_line.lstrip('#').strip() if first_line.startswith('##') else "faust_docs"
+
+                # Determine library from function name
+                lib_name = func_name.split('.')[0] if '.' in func_name else "general"
+
+                doc = Document(
+                    page_content=chunk.strip(),
+                    metadata={
+                        "source": "faust_bible_docs",
+                        "function": func_name,
+                        "library": lib_name,
+                        "type": "faust_library_reference",
+                        "category": "faust",
+                    }
+                )
+                documents.append(doc)
+
+            # Split large chunks further
+            splits = self.text_splitter.split_documents(documents)
+
+            # Add to vectorstore
+            self.vectorstore.add_documents(splits)
+
+            return f"""✅ FAUST Library Docs Loaded!
+
+📊 Stats:
+- Functions documented: {len(documents)}
+- Chunks indexed: {len(splits)}
+- Source: faust_docs.md ({len(content) // 1024} KB)
+
+The FAUST agent now has deep knowledge of all library functions."""
+
+        except Exception as e:
+            return f"❌ Error loading FAUST docs: {e}"
+
     def get_folder_stats(self):
         """Get statistics about uploaded files by folder"""
         uploads_dir = Path("./uploads")
