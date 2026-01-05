@@ -822,6 +822,75 @@ def render_faust_docs_section(glm_system):
         st.info("Run: python download_faust_docs_complete.py in your project directory")
 
 
+def render_knowledge_search(glm_system):
+    """Render knowledge base search interface"""
+    st.subheader("🔍 Search Knowledge Base")
+
+    # Search input
+    search_query = st.text_input(
+        "Search query",
+        placeholder="e.g., adsr envelope, lowpass filter, oscillator...",
+        key="kb_search_query"
+    )
+
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        num_results = st.selectbox("Results", [3, 5, 10, 20], index=1, key="kb_num_results")
+    with col2:
+        search_clicked = st.button("🔍 Search", key="kb_search_btn")
+
+    if search_clicked and search_query.strip():
+        with st.spinner(f"Searching for '{search_query}'..."):
+            try:
+                # Direct similarity search
+                results = glm_system.vectorstore.similarity_search(search_query, k=num_results)
+
+                if results:
+                    st.success(f"Found {len(results)} results")
+
+                    for i, doc in enumerate(results):
+                        source = doc.metadata.get("source", "unknown")
+                        func = doc.metadata.get("function", "")
+                        lib = doc.metadata.get("library", "")
+
+                        # Create header
+                        if func:
+                            header = f"**{i+1}. {func}** ({lib})"
+                        else:
+                            header = f"**{i+1}. {source.split('/')[-1]}**"
+
+                        with st.expander(header, expanded=(i == 0)):
+                            # Show metadata
+                            st.caption(f"Source: {source}")
+                            if doc.metadata:
+                                meta_str = " | ".join([f"{k}: {v}" for k, v in doc.metadata.items() if k != "source"])
+                                if meta_str:
+                                    st.caption(meta_str)
+
+                            # Show content
+                            content = doc.page_content
+                            if len(content) > 1500:
+                                st.markdown(content[:1500] + "...")
+                            else:
+                                st.markdown(content)
+                else:
+                    st.warning("No results found. Try different keywords.")
+
+            except Exception as e:
+                st.error(f"Search error: {e}")
+
+    elif search_clicked:
+        st.warning("Enter a search query")
+
+    # Show database stats
+    with st.expander("📊 Database Stats"):
+        kb_status = glm_system.check_vectorstore_status()
+        st.write(f"**Documents:** {kb_status.get('document_count', 0)}")
+        st.write(f"**Status:** {kb_status.get('status', 'Unknown')}")
+        if kb_status.get('test_count', 0) > 0:
+            st.caption(f"({kb_status['test_count']} test documents excluded)")
+
+
 def render_model_status(glm_system):
     """Render model status section - simplified without HRM"""
     st.subheader("🔧 System Status")

@@ -500,18 +500,14 @@ def render_knowledge_base_tab():
                 else:
                     st.info("No files found in uploads/")
 
-        st.subheader("🎵 FAUST Documentation")
-        if st.button("📥 Load FAUST Docs"):
-            with st.spinner("Loading FAUST documentation..."):
-                result = (
-                    st.session_state.multi_glm_system.file_processor.load_faust_documentation()
-                )
-            st.success(result)
+    # FAUST docs section (full width)
+    st.write("---")
+    from src.ui.ui_components import render_faust_docs_section, render_knowledge_search
+    render_faust_docs_section(st.session_state.multi_glm_system)
 
-        if st.button("🌐 Download FAUST Docs"):
-            st.info(
-                "Run: python download_faust_docs_complete.py in your project directory"
-            )
+    # Knowledge base search (full width)
+    st.write("---")
+    render_knowledge_search(st.session_state.multi_glm_system)
 
 
 if __name__ == "__main__":
