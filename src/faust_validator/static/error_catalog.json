@@ -1,0 +1,1052 @@
+{
+  "version": "1.0",
+  "source": "/Users/thomasmandolini/Dev/Local Coding Assistant/faust/compiler",
+  "errors": {
+    "endless_evaluation_cycle": {
+      "pattern": "endless evaluation cycle of (\\d+) steps",
+      "message": "Endless evaluation cycle detected",
+      "cause": "A variable references itself, creating infinite recursion. Usually happens when a variable name matches a library prefix (e.g., 'envelope = envelope.adsr(...)' tries to access 'envelope' before it's defined).",
+      "fix": "Rename the variable to avoid conflict with library names. Use short names like 'env' instead of 'envelope', 'lpf' instead of 'filter', 'dly' instead of 'delay'.",
+      "example_bad": "envelope = envelope.adsr(0.1, 0.1, 0.8, 0.2, gate);",
+      "example_good": "env = en.adsr(0.1, 0.1, 0.8, 0.2, gate);"
+    },
+    "stack_overflow": {
+      "pattern": "stack overflow in eval",
+      "message": "Stack overflow during evaluation",
+      "cause": "Deep recursion or infinite loop in signal definition.",
+      "fix": "Check for circular references in your signal definitions. Ensure feedback loops use the ~ operator correctly.",
+      "example_bad": "x = x + 1;",
+      "example_good": "x = _ ~ +(1);  // proper feedback"
+    },
+    "sequential_composition_mismatch": {
+      "pattern": "sequential composition.*outputs.*inputs",
+      "message": "Sequential composition (:) input/output mismatch",
+      "cause": "The output count of the left expression doesn't match the input count of the right expression.",
+      "fix": "Check signal counts. Use <: to split signals or :> to merge them. Example: stereo signal into mono filter needs :> first.",
+      "example_bad": "stereo_osc : mono_filter  // 2 outputs -> 1 input",
+      "example_good": "stereo_osc :> mono_filter  // merge to mono first"
+    },
+    "split_composition_mismatch": {
+      "pattern": "split composition.*outputs.*inputs",
+      "message": "Split composition (<:) error",
+      "cause": "Output count must be a multiple of input count in split composition.",
+      "fix": "Ensure the right side has N copies of the destination, where N = outputs/inputs.",
+      "example_bad": "mono <: stereo_effect  // 1 -> 2 inputs doesn't work",
+      "example_good": "mono <: (_, _) : stereo_effect  // duplicate first"
+    },
+    "merge_composition_mismatch": {
+      "pattern": "merge composition.*outputs.*inputs",
+      "message": "Merge composition (:>) error",
+      "cause": "Input count must be a multiple of output count in merge composition.",
+      "fix": "The left side signals are summed in groups to produce fewer outputs.",
+      "example_bad": "stereo :> (_, _, _)  // 2 -> 3 doesn't work",
+      "example_good": "stereo :> _  // 2 -> 1 (summed to mono)"
+    },
+    "recursive_composition_mismatch": {
+      "pattern": "recursive composition.*outputs.*inputs",
+      "message": "Recursive composition (~) error",
+      "cause": "In A~B, outputs of A must be >= inputs of B, and inputs of A must be >= outputs of B.",
+      "fix": "Check that the feedback path has compatible signal counts.",
+      "example_bad": "_ ~ (_, _)  // 1 output can't feed 2 inputs",
+      "example_good": "_ ~ _  // 1 output feeds 1 input"
+    },
+    "undefined_symbol": {
+      "pattern": "undefined symbol\\s*['\\\"]?(\\w+)['\\\"]?",
+      "message": "Undefined symbol",
+      "cause": "Reference to a variable or function that doesn't exist.",
+      "fix": "Check spelling. Ensure library is imported. Use correct prefix (e.g., 'fi.lowpass' not 'filter.lowpass').",
+      "example_bad": "process = lowpass(2, 1000);",
+      "example_good": "process = fi.lowpass(2, 1000);"
+    },
+    "incompatible_types": {
+      "pattern": "incompatible types.*and",
+      "message": "Incompatible signal types",
+      "cause": "Trying to combine signals of different types (e.g., int and float).",
+      "fix": "Ensure consistent types. Use float() or int() to convert.",
+      "example_bad": "process = 1 + 0.5;  // int + float",
+      "example_good": "process = 1.0 + 0.5;  // float + float"
+    },
+    "division_by_zero": {
+      "pattern": "division by (0|zero)",
+      "message": "Division by zero",
+      "cause": "Dividing by a value that can be zero at runtime.",
+      "fix": "Use ba.if or max() to prevent division by zero. Note: ba.if evaluates both branches!",
+      "example_bad": "process = x / y;",
+      "example_good": "process = x / max(0.0001, y);"
+    },
+    "string_assignment": {
+      "pattern": "unexpected STRING",
+      "message": "Unexpected string literal",
+      "cause": "Strings can only be used in declare statements and UI labels, not as variable values.",
+      "fix": "Use 'declare' for metadata strings. Variables must hold signal expressions.",
+      "example_bad": "title = \"My Synth\";",
+      "example_good": "declare name \"My Synth\";"
+    },
+    "file_not_found": {
+      "pattern": "can't open.*file",
+      "message": "File not found",
+      "cause": "The compiler can't find the referenced file (library or include).",
+      "fix": "Check the file path. Ensure faustlibraries is installed. Use import(\"stdfaust.lib\") for standard libs.",
+      "example_bad": "import(\"mylib.lib\");  // file doesn't exist",
+      "example_good": "import(\"stdfaust.lib\");  // standard library"
+    },
+    "invalid_delay": {
+      "pattern": "invalid delay parameter",
+      "message": "Invalid delay parameter",
+      "cause": "Delay value is negative or exceeds maximum.",
+      "fix": "Ensure delay is positive and within max bounds. Use max(0, d) to clamp.",
+      "example_bad": "process = _ : @(-100);",
+      "example_good": "process = _ : @(max(0, d));"
+    },
+    "too_big_delay": {
+      "pattern": "too big delay value",
+      "message": "Delay value too large",
+      "cause": "Delay exceeds the maximum allowed (usually 2^24 samples).",
+      "fix": "Reduce delay or use de.delay() with explicit max size.",
+      "example_bad": "process = _ : @(100000000);",
+      "example_good": "process = _ : de.delay(48000, d);  // explicit max"
+    },
+    "unknown_function": {
+      "pattern": "unknown function.*['\\\"](\\w+)['\\\"]",
+      "message": "Unknown function",
+      "cause": "Calling a function that doesn't exist in the imported libraries.",
+      "fix": "Check function name and library prefix. See faustlibraries documentation.",
+      "example_bad": "process = filters.lowpass(2, 1000);",
+      "example_good": "process = fi.lowpass(2, 1000);"
+    },
+    "wrong_number_of_arguments": {
+      "pattern": "wrong number of (arguments|parameters)",
+      "message": "Wrong number of arguments",
+      "cause": "Function called with incorrect number of parameters.",
+      "fix": "Check the function signature in documentation.",
+      "example_bad": "process = fi.lowpass(1000);  // missing order",
+      "example_good": "process = fi.lowpass(2, 1000);  // order, freq"
+    },
+    "ba_if_strict_evaluation": {
+      "pattern": "",
+      "message": "ba.if strict evaluation trap",
+      "cause": "ba.if evaluates BOTH branches, so division by zero in either branch will fail even if not selected.",
+      "fix": "Use select2() for conditional selection, or ensure both branches are safe.",
+      "example_bad": "ba.if(x > 0, 1/x, 0)  // 1/x evaluated even when x=0",
+      "example_good": "select2(x > 0, 0, 1/max(0.0001, x))"
+    }
+  },
+  "raw_errors": [
+    {
+      "raw": "ERROR during the evaluation of process :",
+      "source": "box_signal_api.cpp"
+    },
+    {
+      "raw": "ERROR : no architecture file specified to inject \\",
+      "source": "libcode.cpp"
+    },
+    {
+      "raw": "ERROR : can't inject \\",
+      "source": "libcode.cpp"
+    },
+    {
+      "raw": "ERROR : can't open architecture file",
+      "source": "libcode.cpp"
+    },
+    {
+      "raw": "ERROR : total of",
+      "source": "libcode.cpp"
+    },
+    {
+      "raw": "ERROR : -lang cllcm not supported since LLVM backend is not built\\n",
+      "source": "libcode.cpp"
+    },
+    {
+      "raw": "ERROR : -lang llvm not supported since LLVM backend is not built\\n",
+      "source": "libcode.cpp"
+    },
+    {
+      "raw": "ERROR : -quad format not supported in Interp\\n",
+      "source": "libcode.cpp"
+    },
+    {
+      "raw": "ERROR : -lang interp not supported since Interpreter backend is not built\\n",
+      "source": "libcode.cpp"
+    },
+    {
+      "raw": "ERROR : -lang fir not supported since FIR backend is not built\\n",
+      "source": "libcode.cpp"
+    },
+    {
+      "raw": "ERROR : -lang c not supported since C backend is not built\\n",
+      "source": "libcode.cpp"
+    },
+    {
+      "raw": "ERROR : -lang codebox not supported since Codebox backend is not built\\n",
+      "source": "libcode.cpp"
+    },
+    {
+      "raw": "ERROR : -lang cpp not supported since CPP backend is not built\\n",
+      "source": "libcode.cpp"
+    },
+    {
+      "raw": "ERROR : -lang ocpp not supported since old CPP backend is not built\\n",
+      "source": "libcode.cpp"
+    },
+    {
+      "raw": "ERROR : -lang rust not supported since Rust backend is not built\\n",
+      "source": "libcode.cpp"
+    },
+    {
+      "raw": "ERROR : -lang java not supported since JAVA backend is not built\\n",
+      "source": "libcode.cpp"
+    },
+    {
+      "raw": "ERROR : -lang julia not supported since Julia backend is not built\\n",
+      "source": "libcode.cpp"
+    },
+    {
+      "raw": "ERROR : -lang temp not supported since JSFX backend is not built\\n",
+      "source": "libcode.cpp"
+    },
+    {
+      "raw": "ERROR : -lang jax not supported since JAX backend is not built\\n",
+      "source": "libcode.cpp"
+    },
+    {
+      "raw": "ERROR : -lang temp not supported since Template backend is not built\\n",
+      "source": "libcode.cpp"
+    },
+    {
+      "raw": "ERROR : -lang csharp not supported since CSharp backend is not built\\n",
+      "source": "libcode.cpp"
+    },
+    {
+      "raw": "ERROR : -lang cmajor not supported since Cmajor backend is not built\\n",
+      "source": "libcode.cpp"
+    },
+    {
+      "raw": "ERROR : -lang wast not supported since WAST backend is not built\\n",
+      "source": "libcode.cpp"
+    },
+    {
+      "raw": "ERROR : -lang wasm not supported since WASM backend is not built\\n",
+      "source": "libcode.cpp"
+    },
+    {
+      "raw": "ERROR : -lang dlang not supported since D backend is not built\\n",
+      "source": "libcode.cpp"
+    },
+    {
+      "raw": "ERROR : -lang vhdl not supported since VHDL backend is not built\\n",
+      "source": "libcode.cpp"
+    },
+    {
+      "raw": "ERROR : -lang sdf3 not supported since SDF3 backend is not built\\n",
+      "source": "libcode.cpp"
+    },
+    {
+      "raw": "ERROR : can't include \\",
+      "source": "libcode.cpp"
+    },
+    {
+      "raw": "ERROR : cannot find backend for",
+      "source": "libcode.cpp"
+    },
+    {
+      "raw": "ERROR : the Faust program has no output signal\\n",
+      "source": "libcode.cpp"
+    },
+    {
+      "raw": "ERROR : cannot using -single, -double, -quad or -fx at the same time\\n",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : invalid -ftz option:",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : invalid directory path",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : '-rnt' option can only be used with 'rust' backend\\n",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : '-rnlm' option can only be used with 'rust' backend\\n",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : for 'rust' the '-inpl' flag must be combined with '-rnt' flag\\n",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : '-inpl' option can only be used in scalar mode\\n",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : 'ocpp' backend can only be used in scalar mode\\n",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : '-os' option can only be used with 'cpp', 'c', 'cmajor', 'dlang', 'fir' or",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : '-ec' option can only be used with 'cpp', 'c', 'cmajor' or 'rust'",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : '-os' option can only be used in scalar mode\\n",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : invalid loop variant [-lv =",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : invalid vector size [-vs =",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : -fun can only be used with 'c', 'cpp', 'llvm' or 'fir' backends\\n",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : -fm can only be used with 'c', 'cpp', 'llvm' or 'wast/wast' backends\\n",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : -ns can only be used with the 'cpp' or 'dlang' backend\\n",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : '-dlt < INT_MAX' option can only be used in scalar mode and not with the",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : -it can only be used with 'cpp', 'c' and 'llvm' backends\\n",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : '-it' and '-mem' cannot be used together\\n",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : -mem1/-mem2/-mem3 has to be used with -it\\n",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : -mem3 can only be used with 'c' backend\\n",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : -mem3 has to be used with -ec\\n",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : -mem3 and -vec has to be used with -lv 2\\n",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : -mem0/-mem1 cannot be used with 'c' backend\\n",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : -cm cannot be used with the 'ocpp' backend\\n",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : -cm cannot be used with the 'interp' backend\\n",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : -cm cannot be used with the 'cmajor' backend\\n",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : -fx can only be used with 'c', 'cpp', 'ocpp' or 'fir' backends\\n",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : -ftz 2 can only be used with 'c', 'cpp', 'ocpp', 'llvm' or wast/wasm",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : -clang can only be used with 'c', 'cpp' or 'ocpp' backends\\n",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : -nvi can only be used with 'c', 'cpp' or 'ocpp' backends\\n",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : -mem can only be used with 'cpp', 'c', or 'ocpp' backends\\n",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : -a can only be used with 'c', 'cpp', 'ocpp', 'rust' and 'cmajor' backends\\n",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : -cn used with empty string \\n",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : no files specified; for help type \\",
+      "source": "global.cpp"
+    },
+    {
+      "raw": "ERROR : the parameter must be an integer constant numerical expression :",
+      "source": "tlib/tree.cpp"
+    },
+    {
+      "raw": "ERROR : the parameter must be a real constant numerical expression :",
+      "source": "tlib/tree.cpp"
+    },
+    {
+      "raw": "ERROR : the parameter must be a symbol known at compile time :",
+      "source": "tlib/tree.cpp"
+    },
+    {
+      "raw": "ERROR : the parameter must be a pointer known at compile time :",
+      "source": "tlib/tree.cpp"
+    },
+    {
+      "raw": "ERROR visiting signal",
+      "source": "signals/sigvisitor.cpp"
+    },
+    {
+      "raw": "ERROR : trying to combine incompatible types,",
+      "source": "signals/sigtype.cpp"
+    },
+    {
+      "raw": "ERROR : checkInt failed for type",
+      "source": "signals/sigtype.cpp"
+    },
+    {
+      "raw": "ERROR : checkKonst failed for type",
+      "source": "signals/sigtype.cpp"
+    },
+    {
+      "raw": "ERROR : checkInit failed for type",
+      "source": "signals/sigtype.cpp"
+    },
+    {
+      "raw": "ERROR : checkWRTbl failed, the content of",
+      "source": "signals/sigtype.cpp"
+    },
+    {
+      "raw": "ERROR : invalid delay parameter range:",
+      "source": "signals/sigtype.cpp"
+    },
+    {
+      "raw": "ERROR : codeAudioType(), invalid pointer",
+      "source": "signals/sigtype.cpp"
+    },
+    {
+      "raw": "ERROR : % by 0 in",
+      "source": "signals/signals.cpp"
+    },
+    {
+      "raw": "ERROR : constSig2double, must a constant numerical expression\\n",
+      "source": "signals/sigtyperules.cpp"
+    },
+    {
+      "raw": "ERROR : constSig2double, constant value with non-singleton interval, don't know what",
+      "source": "signals/sigtyperules.cpp"
+    },
+    {
+      "raw": "ERROR : out of range soundfile part number (",
+      "source": "signals/sigtyperules.cpp"
+    },
+    {
+      "raw": "ERROR : can't compute the min and max values of :",
+      "source": "signals/sigtyperules.cpp"
+    },
+    {
+      "raw": "ERROR : possible negative values of :",
+      "source": "signals/sigtyperules.cpp"
+    },
+    {
+      "raw": "ERROR : inferring projection type, not a tuplet type :",
+      "source": "signals/sigtyperules.cpp"
+    },
+    {
+      "raw": "ERROR : inferring write table type, wrong table type :",
+      "source": "signals/sigtyperules.cpp"
+    },
+    {
+      "raw": "ERROR : inferring write table type, wrong write index type :",
+      "source": "signals/sigtyperules.cpp"
+    },
+    {
+      "raw": "ERROR : inferring read table type, no table type :",
+      "source": "signals/sigtyperules.cpp"
+    },
+    {
+      "raw": "ERROR : inferring read table type, no read index type :",
+      "source": "signals/sigtyperules.cpp"
+    },
+    {
+      "raw": "ERROR : choldDir :",
+      "source": "utils/files.cpp"
+    },
+    {
+      "raw": "ERROR : mkchDir :",
+      "source": "utils/files.cpp"
+    },
+    {
+      "raw": "ERROR : makeDir :",
+      "source": "utils/files.cpp"
+    },
+    {
+      "raw": "ERROR : cannot open file '",
+      "source": "parser/enrobage.cpp"
+    },
+    {
+      "raw": "ERROR : getcwd :",
+      "source": "parser/enrobage.cpp"
+    },
+    {
+      "raw": "ERROR : cannot change back directory to '",
+      "source": "parser/enrobage.cpp"
+    },
+    {
+      "raw": "ERROR : unable to access URL '",
+      "source": "parser/enrobage.cpp"
+    },
+    {
+      "raw": "ERROR : inconsistent number of parameters in pattern-matching rule:",
+      "source": "parser/sourcereader.cpp"
+    },
+    {
+      "raw": "ERROR : unable to open file",
+      "source": "parser/sourcereader.cpp"
+    },
+    {
+      "raw": "ERROR : parse code =",
+      "source": "parser/sourcereader.cpp"
+    },
+    {
+      "raw": "ERROR : %s (%p)\\n",
+      "source": "generator/uitree.cpp"
+    },
+    {
+      "raw": "ERROR in addFolder : not a folder\\n",
+      "source": "generator/uitree.cpp"
+    },
+    {
+      "raw": "ERROR in getFolder : not a folder\\n",
+      "source": "generator/uitree.cpp"
+    },
+    {
+      "raw": "ERROR already a compiled expression attached :",
+      "source": "generator/instructions_compiler.cpp"
+    },
+    {
+      "raw": "ERROR : accessing foreign constant '",
+      "source": "generator/instructions_compiler.cpp"
+    },
+    {
+      "raw": "ERROR : accessing foreign variable '",
+      "source": "generator/instructions_compiler.cpp"
+    },
+    {
+      "raw": "ERROR : calling foreign function '",
+      "source": "generator/instructions_compiler.cpp"
+    },
+    {
+      "raw": "ERROR : too big delay value '",
+      "source": "generator/Text.cpp"
+    },
+    {
+      "raw": "ERROR unrecognized state",
+      "source": "generator/description.cpp"
+    },
+    {
+      "raw": "ERROR : stack overflow\\n",
+      "source": "generator/export.cpp"
+    },
+    {
+      "raw": "ERROR : foreign function '",
+      "source": "generator/instructions.cpp"
+    },
+    {
+      "raw": "ERROR : unknown loop variant",
+      "source": "generator/klass.cpp"
+    },
+    {
+      "raw": "ERROR : division by 0 in",
+      "source": "normalize/mterm.cpp"
+    },
+    {
+      "raw": "ERROR : combineMulLeft\\n",
+      "source": "normalize/mterm.cpp"
+    },
+    {
+      "raw": "ERROR : combineDivLeft\\n",
+      "source": "normalize/mterm.cpp"
+    },
+    {
+      "raw": "ERROR : stack overflow in eval\\n",
+      "source": "evaluate/loopDetector.cpp"
+    },
+    {
+      "raw": "ERROR : can't evaluate :",
+      "source": "evaluate/eval.cpp"
+    },
+    {
+      "raw": "ERROR in seq() expressions. The iterated function must have the same number of",
+      "source": "evaluate/eval.cpp"
+    },
+    {
+      "raw": "ERROR : pattern matching failed, no rule of",
+      "source": "evaluate/eval.cpp"
+    },
+    {
+      "raw": "ERROR : wrong result from pattern matching (not a closure) :",
+      "source": "evaluate/eval.cpp"
+    },
+    {
+      "raw": "ERROR : too much arguments :",
+      "source": "evaluate/eval.cpp"
+    },
+    {
+      "raw": "ERROR : init =",
+      "source": "transform/sigPromotion.cpp"
+    },
+    {
+      "raw": "ERROR : 'control/enable' can only be used in scalar mode\\n",
+      "source": "transform/sigPromotion.cpp"
+    },
+    {
+      "raw": "ERROR : RDTbl size =",
+      "source": "transform/sigPromotion.cpp"
+    },
+    {
+      "raw": "ERROR : WRTbl size =",
+      "source": "transform/sigPromotion.cpp"
+    },
+    {
+      "raw": "ERROR : file extension is not the one expected (.dsp expected)\\n",
+      "source": "transform/signalRenderer.cpp"
+    },
+    {
+      "raw": "ERROR : sigToGraph.cpp, unrecognized signal :",
+      "source": "draw/sigToGraph.cpp"
+    },
+    {
+      "raw": "ERROR in generateInsideSchema, box expression not recognized :",
+      "source": "draw/drawschema.cpp"
+    },
+    {
+      "raw": "ERROR : unknown user interface element\\n",
+      "source": "draw/drawschema.cpp"
+    },
+    {
+      "raw": "ERROR : soundfile\\n",
+      "source": "draw/drawschema.cpp"
+    },
+    {
+      "raw": "ERROR : can't open Faust source file",
+      "source": "documentator/doc.cpp"
+    },
+    {
+      "raw": "ERROR : during the evaluation of t :",
+      "source": "documentator/doc.cpp"
+    },
+    {
+      "raw": "ERROR : getLateqIndex found no \\",
+      "source": "documentator/lateq.cpp"
+    },
+    {
+      "raw": "ERROR in sharing count (",
+      "source": "documentator/doc_compile.cpp"
+    },
+    {
+      "raw": "ERROR : box::print() :",
+      "source": "boxes/ppbox.cpp"
+    },
+    {
+      "raw": "ERROR : boxppShared::print() :",
+      "source": "boxes/ppbox.cpp"
+    },
+    {
+      "raw": "ERROR : recursive composition",
+      "source": "boxes/boxtype.cpp"
+    },
+    {
+      "raw": "ERROR : boxType() internal error, unrecognized box expression :",
+      "source": "boxes/boxtype.cpp"
+    },
+    {
+      "raw": "ERROR : preparePattern() :",
+      "source": "boxes/boxes.cpp"
+    },
+    {
+      "raw": "ERROR : boxComplexity, not an evaluated box [[",
+      "source": "boxes/boxcomplexity.cpp"
+    },
+    {
+      "raw": "ERROR : topSchema::inputPoint\\n",
+      "source": "draw/schema/topSchema.cpp"
+    },
+    {
+      "raw": "ERROR : topSchema::outputPoint\\n",
+      "source": "draw/schema/topSchema.cpp"
+    },
+    {
+      "raw": "ERROR : impossible to create or open",
+      "source": "draw/device/PSDev.cpp"
+    },
+    {
+      "raw": "ERROR : OpenCL not supported for Interpreter\\n",
+      "source": "generator/interpreter/interpreter_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : CUDA not supported for Interpreter\\n",
+      "source": "generator/interpreter/interpreter_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : OpenMP not supported for Interpreter\\n",
+      "source": "generator/interpreter/interpreter_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : Scheduler mode not supported for Interpreter\\n",
+      "source": "generator/interpreter/interpreter_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : Vector mode not supported for Interpreter\\n",
+      "source": "generator/interpreter/interpreter_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : Vector mode with -lv 0 not supported for Interpreter\\n",
+      "source": "generator/interpreter/interpreter_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : unrecognized file format\\n",
+      "source": "generator/interpreter/interpreter_dsp_aux.cpp"
+    },
+    {
+      "raw": "ERROR opening file '",
+      "source": "generator/interpreter/interpreter_dsp_aux.cpp"
+    },
+    {
+      "raw": "ERROR : file Extension is not the one expected (.fbc expected)\\n",
+      "source": "generator/interpreter/interpreter_dsp_aux.cpp"
+    },
+    {
+      "raw": "ERROR : OpenCL not supported for JSFX\\n",
+      "source": "generator/jsfx/jsfx_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : CUDA not supported for JSFX\\n",
+      "source": "generator/jsfx/jsfx_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : OpenMP not supported for JSFX\\n",
+      "source": "generator/jsfx/jsfx_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : Scheduler not supported for JSFX\\n",
+      "source": "generator/jsfx/jsfx_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : Vector not supported for JSFX\\n",
+      "source": "generator/jsfx/jsfx_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : JSFX format does not support more than 64 inputs\\n",
+      "source": "generator/jsfx/jsfx_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : JSFX format does not support more than 64 outputs\\n",
+      "source": "generator/jsfx/jsfx_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : nvoices must be >= to 1",
+      "source": "generator/jsfx/jsfx_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : OpenCL not supported for Codebox\\n",
+      "source": "generator/codebox/codebox_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : CUDA not supported for Codebox\\n",
+      "source": "generator/codebox/codebox_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : OpenMP not supported for Codebox\\n",
+      "source": "generator/codebox/codebox_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : Scheduler not supported for Codebox\\n",
+      "source": "generator/codebox/codebox_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : Vecor not supported for Codebox\\n",
+      "source": "generator/codebox/codebox_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : -quad format not supported for D\\n",
+      "source": "generator/dlang/dlang_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : OpenCL not supported for D\\n",
+      "source": "generator/dlang/dlang_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : CUDA not supported for D\\n",
+      "source": "generator/dlang/dlang_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : OpenMP not supported for D\\n",
+      "source": "generator/dlang/dlang_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : Scheduler not supported for D\\n",
+      "source": "generator/dlang/dlang_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : processor '",
+      "source": "generator/cmajor/cmajor_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : OpenMP not supported for Cmajor\\n",
+      "source": "generator/cmajor/cmajor_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : Scheduler not supported for Cmajor\\n",
+      "source": "generator/cmajor/cmajor_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : Vector mode not supported for Cmajor\\n",
+      "source": "generator/cmajor/cmajor_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : -quad format not supported for Rust\\n",
+      "source": "generator/rust/rust_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : OpenCL not supported for Rust\\n",
+      "source": "generator/rust/rust_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : CUDA not supported for Rust\\n",
+      "source": "generator/rust/rust_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : OpenMP not supported for Rust\\n",
+      "source": "generator/rust/rust_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : Scheduler not supported for Rust\\n",
+      "source": "generator/rust/rust_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : -quad format not supported for WebAssembly\\n",
+      "source": "generator/wasm/wast_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : OpenCL not supported for WebAssembly\\n",
+      "source": "generator/wasm/wast_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : CUDA not supported for WebAssembly\\n",
+      "source": "generator/wasm/wast_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : OpenMP not supported for WebAssembly\\n",
+      "source": "generator/wasm/wast_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : Scheduler mode not supported for WebAssembly\\n",
+      "source": "generator/wasm/wast_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : Vector mode not supported for WebAssembly\\n",
+      "source": "generator/wasm/wast_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : Vector mode with -lv 0 not supported for WebAssembly\\n",
+      "source": "generator/wasm/wast_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : cannot open '",
+      "source": "generator/wasm/wasm_dsp_aux.cpp"
+    },
+    {
+      "raw": "ERROR : OpenCL not supported for Template\\n",
+      "source": "generator/template/template_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : CUDA not supported for Template\\n",
+      "source": "generator/template/template_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : OpenMP not supported for Template\\n",
+      "source": "generator/template/template_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : Scheduler not supported for Template\\n",
+      "source": "generator/template/template_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : -quad format not supported for LLVM\\n",
+      "source": "generator/llvm/llvm_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : OpenCL not supported for LLVM\\n",
+      "source": "generator/llvm/llvm_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : CUDA not supported for LLVM\\n",
+      "source": "generator/llvm/llvm_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : OpenMP not supported for LLVM\\n",
+      "source": "generator/llvm/llvm_code_container.cpp"
+    },
+    {
+      "raw": "ERROR/LLVM : loadOptimize failed for '",
+      "source": "generator/llvm/llvm_dsp_aux.cpp"
+    },
+    {
+      "raw": "ERROR : writeDSPFactoryToMachineFile could not open file :",
+      "source": "generator/llvm/llvm_dsp_aux.cpp"
+    },
+    {
+      "raw": "ERROR : failed to read bitcode\\n",
+      "source": "generator/llvm/llvm_dynamic_dsp_aux.cpp"
+    },
+    {
+      "raw": "ERROR : writeDSPFactoryToBitcodeFile could not open file :",
+      "source": "generator/llvm/llvm_dynamic_dsp_aux.cpp"
+    },
+    {
+      "raw": "ERROR : cannot create LLVM JIT :",
+      "source": "generator/llvm/llvm_dynamic_dsp_aux.cpp"
+    },
+    {
+      "raw": "ERROR : writeDSPFactoryToObjectcodeFile could not open file :",
+      "source": "generator/llvm/llvm_dynamic_dsp_aux.cpp"
+    },
+    {
+      "raw": "ERROR : writeDSPFactoryToObjectcodeFile : can't emit a file of this type",
+      "source": "generator/llvm/llvm_dynamic_dsp_aux.cpp"
+    },
+    {
+      "raw": "ERROR : quad format not supported for Java\\n",
+      "source": "generator/java/java_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : OpenCL not supported for Java\\n",
+      "source": "generator/java/java_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : CUDA not supported for Java\\n",
+      "source": "generator/java/java_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : OpenMP not supported for Java\\n",
+      "source": "generator/java/java_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : Scheduler not supported for Java\\n",
+      "source": "generator/java/java_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : Vector mode not supported for Java\\n",
+      "source": "generator/java/java_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : -fun not yet supported in OpenCL mode\\n",
+      "source": "generator/cpp/cpp_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : -fun not yet supported in CUDA mode\\n",
+      "source": "generator/cpp/cpp_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : -quad format not supported for CSharp\\n",
+      "source": "generator/csharp/csharp_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : OpenCL not supported for CSharp\\n",
+      "source": "generator/csharp/csharp_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : CUDA not supported for CSharp\\n",
+      "source": "generator/csharp/csharp_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : OpenMP not supported for CSharp\\n",
+      "source": "generator/csharp/csharp_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : Scheduler not supported for CSharp\\n",
+      "source": "generator/csharp/csharp_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : Vector mode not supported for CSharp\\n",
+      "source": "generator/csharp/csharp_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : OpenCL not supported for Julia\\n",
+      "source": "generator/julia/julia_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : CUDA not supported for Julia\\n",
+      "source": "generator/julia/julia_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : OpenMP not supported for Julia\\n",
+      "source": "generator/julia/julia_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : Scheduler not supported for Julia\\n",
+      "source": "generator/julia/julia_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : Vector not supported for Julia\\n",
+      "source": "generator/julia/julia_code_container.cpp"
+    },
+    {
+      "raw": "ERROR: no matching channel",
+      "source": "generator/sdf3/signal2SDF.cpp"
+    },
+    {
+      "raw": "ERROR no matching channel",
+      "source": "generator/sdf3/signal2SDF.cpp"
+    },
+    {
+      "raw": "ERROR: invalid port type detected",
+      "source": "generator/sdf3/SDF.cpp"
+    },
+    {
+      "raw": "ERROR : OpenCL not supported for JAX\\n",
+      "source": "generator/jax/jax_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : CUDA not supported for JAX\\n",
+      "source": "generator/jax/jax_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : OpenMP not supported for JAX\\n",
+      "source": "generator/jax/jax_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : Scheduler not supported for JAX\\n",
+      "source": "generator/jax/jax_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : Vector not supported for JAX\\n",
+      "source": "generator/jax/jax_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : OpenCL not supported for C\\n",
+      "source": "generator/c/c_code_container.cpp"
+    },
+    {
+      "raw": "ERROR : CUDA not supported for C\\n",
+      "source": "generator/c/c_code_container.cpp"
+    }
+  ]
+}

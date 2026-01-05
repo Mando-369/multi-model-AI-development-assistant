@@ -1029,11 +1029,19 @@ Output the modified file in a code block:
                     else:
                         st.caption("No options for this source")
 
+                # Advanced options
+                hide_meters = st.checkbox(
+                    "Hide Meters",
+                    value=st.session_state.get(f"faust_hide_meters_{filename}", False),
+                    key=f"faust_hide_meters_{filename}",
+                    help="Hide RMS/Peak meter bargraphs in faust-ui (values still readable via API)"
+                )
+
                 # Store in session state for use by run_faust_realtime
                 if "faust_input_settings" not in st.session_state:
                     st.session_state.faust_input_settings = {}
 
-                settings = {"source": input_source, "freq": None, "file": None}
+                settings = {"source": input_source, "freq": None, "file": None, "hide_meters": hide_meters}
                 if input_source == "sine":
                     settings["freq"] = st.session_state.get(f"faust_input_freq_{filename}", 1000)
                 elif input_source == "file":
@@ -1097,9 +1105,10 @@ Output the modified file in a code block:
                 st.error(f"Analysis failed: {e}")
 
     def check_faust_syntax_file(self, file_path: str, file_data: dict):
-        """Quick syntax check - uses realtime server (WASM) or local faust CLI as fallback"""
+        """Validate FAUST code using faust_validator + WASM syntax check"""
         from src.core.faust_realtime_client import check_faust_syntax_realtime, check_realtime_server
         from src.core.faust_mcp_client import check_faust_syntax
+        from src.faust_validator import validate, translate_error
 
         # Get current content from editor value (most up-to-date) or file_data
         file_path = str(Path(file_path).resolve())
@@ -1117,27 +1126,55 @@ Output the modified file in a code block:
             st.warning("No FAUST code to check")
             return
 
+        # Phase 1: Run faust_validator (catches common LLM mistakes)
+        validation_result = validate(faust_code)
+
+        if not validation_result.valid:
+            st.error("**✗ Validation Failed**")
+            st.markdown(validation_result.format_for_llm())
+            return
+
+        # Show warnings if any
+        if validation_result.warnings:
+            with st.expander("⚠️ Warnings", expanded=True):
+                for warn in validation_result.warnings:
+                    st.warning(f"Line {warn.get('line', '?')}: {warn.get('message', 'Unknown')}")
+                    if warn.get('suggestion'):
+                        st.caption(f"💡 {warn['suggestion']}")
+
+        # Phase 2: WASM syntax check (actual compiler validation)
         with st.spinner("Checking syntax..."):
             # Try realtime server first (WASM-based, no local faust needed)
             if check_realtime_server():
                 result = check_faust_syntax_realtime(faust_code)
                 if result.success:
-                    st.success("✓ **Syntax OK** - No errors found")
+                    st.success("✓ **Validation OK** - No errors found")
                     if result.params:
                         with st.expander("Parameters detected"):
                             for p in result.params:
                                 st.text(f"  {p.get('label', p.get('address', '?'))}: {p.get('init', 0)}")
                 else:
-                    st.error("**✗ Syntax Error**")
-                    st.code(result.error, language="text")
+                    st.error("**✗ Compiler Error**")
+                    # Translate error using faust_validator
+                    translated = translate_error(result.error)
+                    st.markdown(f"**Cause:** {translated.cause}")
+                    st.markdown(f"**Fix:** {translated.fix}")
+                    if translated.example_good:
+                        st.code(f"// Bad:\n{translated.example_bad}\n\n// Good:\n{translated.example_good}", language="javascript")
+                    with st.expander("Raw error"):
+                        st.code(result.error, language="text")
             else:
                 # Fallback to local faust CLI
                 result = check_faust_syntax(faust_code)
                 if result["success"]:
-                    st.success("✓ **Syntax OK** - No errors found")
+                    st.success("✓ **Validation OK** - No errors found")
                 else:
-                    st.error("**✗ Syntax Error**")
-                    st.code(result["errors"], language="text")
+                    st.error("**✗ Compiler Error**")
+                    translated = translate_error(result["errors"])
+                    st.markdown(f"**Cause:** {translated.cause}")
+                    st.markdown(f"**Fix:** {translated.fix}")
+                    with st.expander("Raw error"):
+                        st.code(result["errors"], language="text")
 
     def _detect_faust_has_inputs(self, faust_code: str) -> bool:
         """Detect if FAUST code expects audio inputs (is an effect vs generator)."""
@@ -1176,6 +1213,7 @@ Output the modified file in a code block:
     def run_faust_realtime(self, file_path: str, file_data: dict):
         """Compile and start FAUST code in realtime"""
         from src.core.faust_realtime_client import run_faust, check_realtime_server
+        from src.faust_validator import validate
 
         # Get current content from editor value (most up-to-date) or file_data
         file_path = str(Path(file_path).resolve())
@@ -1192,6 +1230,13 @@ Output the modified file in a code block:
             st.warning("No FAUST code to run")
             return
 
+        # Pre-flight validation (catch errors before compile)
+        validation_result = validate(faust_code)
+        if not validation_result.valid:
+            st.error("**✗ Validation Failed** - Fix errors before running")
+            st.markdown(validation_result.format_for_llm())
+            return
+
         # Check if realtime server is running
         if not check_realtime_server():
             st.error("Realtime server not running on :8000")
@@ -1203,6 +1248,7 @@ Output the modified file in a code block:
         input_source = input_settings.get("source", "none")
         input_freq = input_settings.get("freq")
         input_file = input_settings.get("file")
+        hide_meters = input_settings.get("hide_meters", False)
 
         # Safety check: warn if DSP has inputs but no input source selected
         has_inputs = self._detect_faust_has_inputs(faust_code)
@@ -1216,7 +1262,8 @@ Output the modified file in a code block:
                 faust_code,
                 input_source=input_source,
                 input_freq=input_freq,
-                input_file=input_file
+                input_file=input_file,
+                hide_meters=hide_meters
             )
 
             if result.success:

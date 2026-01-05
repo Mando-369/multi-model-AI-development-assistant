@@ -58,7 +58,8 @@ class FaustRealtimeClient:
         latency_hint: str = "interactive",
         input_source: str = "none",
         input_freq: Optional[float] = None,
-        input_file: Optional[str] = None
+        input_file: Optional[str] = None,
+        hide_meters: bool = False
     ) -> FaustRealtimeResult:
         """
         Compile FAUST code and start real-time playback.
@@ -96,6 +97,8 @@ class FaustRealtimeClient:
                         params["input_freq"] = input_freq
                     if input_file is not None:
                         params["input_file"] = input_file
+                    if hide_meters:
+                        params["hide_meters"] = True
 
                     result = await session.call_tool(
                         "compile_and_start",
@@ -303,7 +306,8 @@ def run_faust(
     name: str = "dsp",
     input_source: str = "none",
     input_freq: Optional[float] = None,
-    input_file: Optional[str] = None
+    input_file: Optional[str] = None,
+    hide_meters: bool = False
 ) -> FaustRealtimeResult:
     """
     Compile and start FAUST code in real-time.
@@ -315,6 +319,7 @@ def run_faust(
         input_source: Test input for effects: 'none', 'sine', 'noise', 'file'
         input_freq: Frequency for sine input (default 1000 Hz)
         input_file: Path to audio file for 'file' input source
+        hide_meters: Hide meter bargraphs in faust-ui (default False)
 
     Returns:
         FaustRealtimeResult with success status
@@ -331,7 +336,8 @@ def run_faust(
             faust_code, name,
             input_source=input_source,
             input_freq=input_freq,
-            input_file=input_file
+            input_file=input_file,
+            hide_meters=hide_meters
         )
 
     return anyio.run(_run)  # type: ignore[union-attr]
