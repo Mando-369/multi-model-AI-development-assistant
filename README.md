@@ -18,6 +18,19 @@
 - **Make basic errors** - recursive definitions, wrong library prefixes, invalid syntax
 - **Sound confident while being wrong** - no uncertainty indication
 
+### What v2.4 Validator Helps With
+
+The FAUST Validator (v2.4) mitigates some issues:
+
+| Issue | Before | After v2.4 |
+|-------|--------|------------|
+| Wrong arg count (`en.adsr(a,b,c,d)`) | ❌ Compiles, fails | ✅ Caught, auto-fixed |
+| Recursive definition (`envelope = en.adsr...`) | ❌ Endless loop | ✅ Caught before compile |
+| Unknown function | ❌ Runtime error | ✅ Caught, suggests alternatives |
+| Missing signatures | ❌ AI guesses | ✅ Correct signatures injected |
+
+**But it doesn't make the LLM smarter.** It just catches common mistakes after generation.
+
 ### What This System is Actually Good For
 
 | Task | Rating | Notes |
@@ -26,24 +39,23 @@
 | Boilerplate (Python/JS/C++) | ✅ Good | Common languages with massive training data |
 | Doc search & summarization | ✅ Good | Retrieval + summarization works |
 | Planning & brainstorming | ✅ Decent | Breaking down problems, architecture ideas |
-| **FAUST code generation** | ❌ Poor | Too niche, expect frequent errors |
+| **FAUST code generation** | ⚠️ Improved | Validator catches errors, but still expect issues |
 | **Being a domain expert** | ❌ No | Pattern matcher, not an expert |
 
 ### What This System is NOT
 
 - **Not a replacement for learning** - you still need to know FAUST/JUCE yourself
-- **Not reliable for niche domains** - expect 50-70% accuracy, not 95%+
+- **Not reliable for niche domains** - validator helps but isn't foolproof
 - **Not a compiler** - always validate generated code with actual tools
 - **Not magic** - RAG gives context that models may ignore
 
 ### Realistic Workflow
 
-Use as a **first-draft generator** and **documentation lookup tool**. For correct FAUST code:
-1. Generate with AI (expect errors)
-2. Validate with FAUST compiler (the actual source of truth)
-3. Fix errors yourself or feed back to AI
-
-The FAUST compiler is smarter than any LLM at FAUST syntax. Use it.
+Use as a **first-draft generator** with validation safety net:
+1. Generate with AI (validator injects correct signatures)
+2. Validator auto-catches common errors, retries 2x
+3. If still failing, the FAUST compiler is the source of truth
+4. Fix remaining errors yourself
 
 For critical/complex code, consider Claude API or GPT-4 which have broader training.
 
@@ -104,11 +116,30 @@ The assistant includes deep FAUST integration via [faust-mcp](https://github.com
 
 | Button | Function | Server |
 |--------|----------|--------|
-| **✓ Syntax** | Fast syntax validation | :8000 (WASM) or local CLI fallback |
+| **✓ Syntax** | Validator + WASM check | :8000 (WASM) or local CLI fallback |
 | **🎛️ Analyze** | Compile + audio metrics | :8765 (offline) |
 | **▶️ Run** | Compile + live playback | :8000 (realtime) |
 
 When a DSP is running, click the link to open the **Parameter UI** at http://localhost:8787 for real-time slider control.
+
+### FAUST Validator (v2.4)
+
+The AI assistant now has a two-tier knowledge system to generate better FAUST code:
+
+**Before generation:**
+- Extracts intent from your request (e.g., "ADSR envelope")
+- Queries the FAUST bible (951 functions with signatures + examples)
+- Injects correct function signatures into the AI's context
+
+**After generation:**
+- Validates code against the bible
+- Catches: wrong arg counts, recursive definitions, unknown functions
+- Auto-retries up to 2x with error feedback
+
+**Knowledge Base search:**
+- Load full FAUST docs into ChromaDB via Knowledge Base tab
+- Manual search to explore what functions are available
+- Semantic search for concepts, not just keywords
 
 ### Test Input for Effects
 
@@ -326,13 +357,25 @@ multi-model-AI-development-assistant/
 │   │   ├── project_meta_manager.py  # PROJECT_META.md operations
 │   │   ├── prompts.py               # System prompts & agent modes
 │   │   ├── project_manager.py       # Project management
+│   │   ├── file_processor.py        # File upload & ChromaDB loading
 │   │   └── context_enhancer.py      # RAG context enhancement
-│   └── ui/
-│       ├── project_meta_ui.py       # Project Meta tab
-│       ├── model_setup_ui.py        # Model Setup tab
-│       ├── ui_components.py         # UI components
-│       ├── editor_ui.py             # Code editor
-│       └── file_browser.py          # File browser
+│   ├── ui/
+│   │   ├── project_meta_ui.py       # Project Meta tab
+│   │   ├── model_setup_ui.py        # Model Setup tab
+│   │   ├── ui_components.py         # UI components
+│   │   ├── editor_ui.py             # Code editor with FAUST integration
+│   │   └── file_browser.py          # File browser
+│   └── faust_validator/             # FAUST validation system
+│       ├── validator.py             # Main validator interface
+│       ├── core/
+│       │   ├── syntax_checker.py    # Check code against bible
+│       │   ├── error_translator.py  # Translate compiler errors
+│       │   ├── bible_parser.py      # Parse faustlibraries
+│       │   └── docs_extractor.py    # Extract docs for ChromaDB
+│       └── static/
+│           ├── faust_bible.json     # 951 functions with examples
+│           ├── faust_docs.md        # Full docs for ChromaDB
+│           └── error_catalog.json   # Known error patterns
 ├── chroma_db/                 # Vector database
 ├── projects/                  # User projects & saved sessions
 │   └── {project}/
@@ -352,7 +395,14 @@ Easy to identify which specialist mode was used!
 
 ## Roadmap
 
-### Current (v2.3)
+### Current (v2.4)
+- [x] **FAUST Validator** - Two-tier knowledge system (Bible + ChromaDB)
+- [x] **Bible Context Injection** - Correct function signatures before generation
+- [x] **Auto-retry Loop** - Validates and retries with error feedback
+- [x] **Knowledge Base Search** - Manual search UI for ChromaDB
+- [x] **Hide Meters Toggle** - Option to hide RMS/Peak meters in faust-ui
+
+### Completed (v2.3)
 - [x] **FAUST Realtime Audio** - Compile and play FAUST code live via WebAudio
 - [x] **Three FAUST Buttons** - Syntax check, Analyze, Run/Stop
 - [x] **faust-mcp Integration** - Full integration with faust-mcp server

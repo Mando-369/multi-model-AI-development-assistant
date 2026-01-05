@@ -42,9 +42,41 @@ All agents see: `Agent Prompt → PROJECT_META.md → Agent Meta → Last Exchan
 ### Buttons
 | Button | Function | Server |
 |--------|----------|--------|
-| ✓ Syntax | WASM validation | :8000 realtime (fallback: local CLI) |
+| ✓ Syntax | Validator + WASM check | :8000 realtime (fallback: local CLI) |
 | 🎛️ Analyze | Compile + metrics | :8765 analysis |
 | ▶️ Run | Live playback | :8000 realtime |
+
+### FAUST Validator (v2.4)
+Two-tier knowledge system that helps the AI generate correct FAUST code:
+
+**Tier 1: Bible (Quick Lookup)**
+- `faust_bible.json` - 951 functions with signatures, params, examples
+- Queried before code generation to inject correct function signatures
+- Catches: wrong arg counts, unknown functions, recursive definitions
+
+**Tier 2: ChromaDB (Deep Search)**
+- `faust_docs.md` - 648KB full library documentation
+- Semantic search via embeddings
+- Load via Knowledge Base tab → "Load Bible Docs"
+
+**Validation Flow:**
+```
+Request → Bible lookup → Inject signatures → Generate → Validate → (auto-retry 2x) → Output
+```
+
+**What it catches:**
+- `en.adsr` needs 5 args, not 4
+- `envelope = en.adsr(...)` recursive definition trap
+- Unknown library functions
+- String assignments (invalid in FAUST)
+- Missing imports
+
+### Key Files
+- `src/faust_validator/` - Validator module
+- `src/faust_validator/static/faust_bible.json` - Function signatures + examples
+- `src/faust_validator/static/faust_docs.md` - Full docs for ChromaDB
+- `src/core/multi_model_system.py` - `_get_faust_bible_context()` method
+- `src/ui/editor_ui.py` - `_validate_and_retry_faust()` method
 
 ### Test Input (for Effects)
 Effects (DSPs with inputs) need test signals. Options:
@@ -58,11 +90,6 @@ File input modes:
 - **HTTP URL** - For remote files, requires `python -m http.server 8080` in audio folder
 
 Safety check warns when running effects with "none" selected.
-
-### Key Files
-- `src/core/faust_mcp_client.py` - Analysis server client
-- `src/core/faust_realtime_client.py` - Realtime server client
-- `src/ui/editor_ui.py` - Editor with FAUST buttons & test input UI
 
 ## Key Files
 - `main.py` - Streamlit entry point
