@@ -1073,17 +1073,44 @@ Format as comma-separated list, nothing else:"""
                 print("⚠️ No matching functions found in bible")
                 return "", keywords
 
-            # Format for injection
-            lines = ["## FAUST Functions (use these exact signatures):"]
-            lines.append("```")
-            for _, name, args, desc in top_funcs:
-                if args:
-                    lines.append(f"{name}({args}) - {desc}")
-                else:
-                    lines.append(f"{name} - {desc}")
-            lines.append("```")
+            # Format for injection - include examples
+            lines = ["## FAUST Functions Reference"]
             lines.append("")
-            lines.append("IMPORTANT: Use these exact function names and argument counts.")
+
+            for _, name, args, desc in top_funcs[:8]:  # Top 8 with full details
+                info = functions.get(name, {})
+                lines.append(f"### {name}")
+                if args:
+                    lines.append(f"**Signature:** `{name}({args})`")
+                lines.append(f"**Description:** {desc}")
+
+                # Add parameter docs if available
+                param_docs = info.get("param_docs", {})
+                if param_docs:
+                    lines.append("**Parameters:**")
+                    for param, pdesc in list(param_docs.items())[:5]:
+                        lines.append(f"  - `{param}`: {pdesc}")
+
+                # Add example if available
+                example = info.get("example", "")
+                if example:
+                    lines.append("**Example:**")
+                    lines.append("```faust")
+                    lines.append(example)
+                    lines.append("```")
+                lines.append("")
+
+            # Add remaining functions as quick reference
+            if len(top_funcs) > 8:
+                lines.append("### Other relevant functions:")
+                for _, name, args, desc in top_funcs[8:]:
+                    if args:
+                        lines.append(f"- `{name}({args})` - {desc}")
+                    else:
+                        lines.append(f"- `{name}` - {desc}")
+
+            lines.append("")
+            lines.append("**IMPORTANT:** Use these exact function names and argument counts.")
             lines.append("Common mistake: en.adsr needs 5 args (at, dt, sl, rt, t) not 4!")
 
             context = "\n".join(lines)

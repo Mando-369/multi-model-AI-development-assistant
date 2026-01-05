@@ -72,6 +72,46 @@ def parse_usage_signature(usage_block: str) -> Dict[str, Any]:
     return result
 
 
+def parse_where_block(block: str) -> Dict[str, str]:
+    """Extract parameter descriptions from Where: block."""
+    param_docs = {}
+
+    # Find Where: section
+    where_match = re.search(r'Where:\s*\n(.*?)(?=\n\s*\n|#### |//[-]+)', block, re.DOTALL)
+    if not where_match:
+        return param_docs
+
+    where_text = where_match.group(1)
+
+    # Parse each parameter line: * `param`: description
+    for line in where_text.split('\n'):
+        line = line.strip().lstrip('/*').strip()
+        param_match = re.match(r'\*?\s*`(\w+)`\s*:\s*(.+)', line)
+        if param_match:
+            param_name = param_match.group(1)
+            param_desc = param_match.group(2).strip()
+            param_docs[param_name] = param_desc
+
+    return param_docs
+
+
+def parse_test_block(block: str) -> str:
+    """Extract example code from #### Test block."""
+    # Find Test section with code block
+    test_match = re.search(r'#### Test.*?```\s*\n(.*?)```', block, re.DOTALL)
+    if test_match:
+        example = test_match.group(1).strip()
+        # Clean up comment prefixes
+        lines = []
+        for line in example.split('\n'):
+            # Remove leading // but preserve content
+            clean = re.sub(r'^[\s/]*', '', line)
+            if clean:
+                lines.append(clean)
+        return '\n'.join(lines)
+    return ""
+
+
 def parse_function_block(block: str, default_prefix: str) -> Optional[Dict[str, Any]]:
     """Parse a single function documentation block."""
 
@@ -123,6 +163,12 @@ def parse_function_block(block: str, default_prefix: str) -> Optional[Dict[str, 
             if args_str.strip():
                 signature_info["args"] = [a.strip() for a in args_str.split(',')]
 
+    # Extract parameter documentation from Where: block
+    param_docs = parse_where_block(block)
+
+    # Extract example from #### Test block
+    example = parse_test_block(block)
+
     return {
         "prefix": prefix,
         "name": name,
@@ -131,7 +177,9 @@ def parse_function_block(block: str, default_prefix: str) -> Optional[Dict[str, 
         "arg_count": len(signature_info["args"]),
         "inputs": signature_info["inputs"],
         "outputs": signature_info["outputs"],
-        "description": description[:200] if description else ""
+        "description": description[:200] if description else "",
+        "param_docs": param_docs,
+        "example": example[:500] if example else ""  # Limit example size
     }
 
 
