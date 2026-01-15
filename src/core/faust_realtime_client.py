@@ -6,8 +6,12 @@ FAUST DSP code in real-time with WebAudio backend.
 """
 
 import json
+import asyncio
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
+
+# Timeout for MCP calls (browser might not respond if tab closed)
+MCP_TIMEOUT_SECONDS = 30
 
 # Check for MCP library
 try:
@@ -100,26 +104,35 @@ class FaustRealtimeClient:
                     if hide_meters:
                         params["hide_meters"] = True
 
-                    result = await session.call_tool(
-                        "compile_and_start",
-                        params
-                    )
+                    try:
+                        result = await asyncio.wait_for(
+                            session.call_tool("compile_and_start", params),
+                            timeout=MCP_TIMEOUT_SECONDS
+                        )
+                    except asyncio.TimeoutError:
+                        return FaustRealtimeResult(
+                            success=False,
+                            error="Audio unlock required"
+                        )
 
                     # Parse result
                     if hasattr(result, 'content') and result.content:
                         text = getattr(result.content[0], 'text', '')
-                        if text.startswith("Error") or "error" in text.lower():
-                            return FaustRealtimeResult(success=False, error=text)
 
                         try:
                             data = json.loads(text)
+                            # Check for error in JSON response
+                            if "error" in data and data["error"]:
+                                return FaustRealtimeResult(success=False, error=str(data["error"]))
                             return FaustRealtimeResult(
                                 success=True,
                                 message=data.get("message", "DSP started"),
                                 params=data.get("params", [])
                             )
                         except json.JSONDecodeError:
-                            # Plain text response
+                            # Plain text - check if it looks like an error
+                            if text.startswith("Error"):
+                                return FaustRealtimeResult(success=False, error=text)
                             return FaustRealtimeResult(
                                 success=True,
                                 message=text
@@ -149,7 +162,16 @@ class FaustRealtimeClient:
                 async with ClientSession(read, write) as session:  # type: ignore[misc]
                     await session.initialize()
 
-                    result = await session.call_tool("stop", {})
+                    try:
+                        result = await asyncio.wait_for(
+                            session.call_tool("stop", {}),
+                            timeout=MCP_TIMEOUT_SECONDS
+                        )
+                    except asyncio.TimeoutError:
+                        return FaustRealtimeResult(
+                            success=True,
+                            message="Stop sent (timed out waiting for response)"
+                        )
 
                     if hasattr(result, 'content') and result.content:
                         text = getattr(result.content[0], 'text', '')

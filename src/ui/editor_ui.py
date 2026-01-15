@@ -1107,7 +1107,9 @@ Fixed code:
                                     f.write(uploaded_file.getbuffer())
                                 st.caption(f"📁 {uploaded_file.name}")
                                 st.session_state[f"faust_input_file_path_{filename}"] = temp_path
-                                st.info("💡 For waveform preview, use HTTP URL mode with a local server")
+
+                                # Show native Streamlit audio player for preview
+                                st.audio(uploaded_file, format=f"audio/{uploaded_file.name.split('.')[-1]}")
                         else:
                             # HTTP URL input
                             url_input = st.text_input(
@@ -1254,15 +1256,29 @@ Fixed code:
                             for p in result.params:
                                 st.text(f"  {p.get('label', p.get('address', '?'))}: {p.get('init', 0)}")
                 else:
-                    st.error("**✗ Compiler Error**")
-                    # Translate error using faust_validator
-                    translated = translate_error(result.error)
-                    st.markdown(f"**Cause:** {translated.cause}")
-                    st.markdown(f"**Fix:** {translated.fix}")
-                    if translated.example_good:
-                        st.code(f"// Bad:\n{translated.example_bad}\n\n// Good:\n{translated.example_good}", language="javascript")
-                    with st.expander("Raw error"):
-                        st.code(result.error, language="text")
+                    # If browser not connected, fall through to local CLI
+                    if "No browser session" in str(result.error):
+                        # Fall through to local CLI below
+                        result = check_faust_syntax(faust_code)
+                        if result["success"]:
+                            st.success("✓ **Validation OK** - No errors found")
+                        else:
+                            st.error("**✗ Compiler Error**")
+                            translated = translate_error(result["errors"])
+                            st.markdown(f"**Cause:** {translated.cause}")
+                            st.markdown(f"**Fix:** {translated.fix}")
+                            with st.expander("Raw error"):
+                                st.code(result["errors"], language="text")
+                    else:
+                        st.error("**✗ Compiler Error**")
+                        # Translate error using faust_validator
+                        translated = translate_error(result.error)
+                        st.markdown(f"**Cause:** {translated.cause}")
+                        st.markdown(f"**Fix:** {translated.fix}")
+                        if translated.example_good:
+                            st.code(f"// Bad:\n{translated.example_bad}\n\n// Good:\n{translated.example_good}", language="javascript")
+                        with st.expander("Raw error"):
+                            st.code(result.error, language="text")
             else:
                 # Fallback to local faust CLI
                 result = check_faust_syntax(faust_code)
@@ -1357,6 +1373,17 @@ Fixed code:
             st.info("Select a test input (sine, noise, or file) in the 'Test Input' expander above, then click Run again.")
             return
 
+        # Convert local file to HTTP URL for browser runtime
+        if input_source == "file" and input_file:
+            if not input_file.startswith(('http://', 'https://')):
+                from src.core.file_server import get_http_url_for_local_file
+                http_url, error = get_http_url_for_local_file(input_file)
+                if error:
+                    st.error(f"File input error: {error}")
+                    return
+                st.info(f"Serving file via HTTP: `{http_url}`")
+                input_file = http_url
+
         with st.spinner("Compiling and starting DSP..."):
             result = run_faust(
                 faust_code,
@@ -1373,7 +1400,25 @@ Fixed code:
                 st.success(f"▶️ DSP Started{input_info}: {result.message}")
                 st.rerun()
             else:
-                st.error(f"Failed to start: {result.error}")
+                error_str = str(result.error)
+                # Check for browser session error or audio unlock required
+                if "No browser session" in error_str or "Audio unlock" in error_str:
+                    import webbrowser
+                    import subprocess
+
+                    # Copy code to clipboard (unwrapped - faust-mcp handles inputs)
+                    try:
+                        subprocess.run(['pbcopy'], input=faust_code.encode(), check=True)
+                        st.success("📋 **Code copied to clipboard!**")
+                    except Exception:
+                        pass
+
+                    browser_url = "http://localhost:8787/"
+                    st.warning("🌐 **Audio unlock required**")
+                    st.info("1. **Paste** code (Cmd+V) and click **'Compile & Start'** in browser\n2. Or click **'Unlock Audio'**, then **Run** again here")
+                    webbrowser.open(browser_url)
+                else:
+                    st.error(f"Failed to start: {result.error}")
 
     def stop_faust_realtime(self):
         """Stop the currently running FAUST DSP"""

@@ -151,29 +151,28 @@ else
     fi
 fi
 
-# 4. Start faust-mcp realtime server (if node-web-audio-api is available)
-echo -e "${YELLOW}[4/5] Starting faust-mcp realtime server on port $FAUST_REALTIME_PORT...${NC}"
+# 4. Start faust-mcp browser realtime server (simpler - no node-web-audio-api needed)
+echo -e "${YELLOW}[4/5] Starting faust-mcp browser server on port $FAUST_REALTIME_PORT...${NC}"
 FAUST_REALTIME_RUNNING=false
 
 if check_port $FAUST_REALTIME_PORT; then
     echo -e "${GREEN}  ✓ Port $FAUST_REALTIME_PORT already in use (server may be running)${NC}"
     FAUST_REALTIME_RUNNING=true
 else
-    WEBAUDIO_DIR="$FAUST_MCP_DIR/external/node-web-audio-api"
-    if [ -d "$WEBAUDIO_DIR" ] && [ -f "$FAUST_MCP_DIR/faust_realtime_server.py" ]; then
+    if [ -f "$FAUST_MCP_DIR/faust_browser_server.py" ]; then
         cd "$FAUST_MCP_DIR"
 
-        # Check if node-web-audio-api is built
-        if [ -d "$WEBAUDIO_DIR/node_modules" ]; then
-            echo "  Using WebAudio realtime backend"
+        # Check if venv exists with mcp installed
+        if [ -f "$FAUST_MCP_DIR/venv/bin/activate" ]; then
+            source "$FAUST_MCP_DIR/venv/bin/activate"
+            echo "  Using browser-based WebAudio backend"
 
-            # Start the realtime server with UI
-            WEBAUDIO_ROOT="$WEBAUDIO_DIR" \
+            # Start the browser server (UI on 8010, MCP on 8000)
             MCP_TRANSPORT=sse \
             MCP_HOST=127.0.0.1 \
             MCP_PORT=$FAUST_REALTIME_PORT \
-            FAUST_UI_PORT=$FAUST_UI_PORT \
-            python3 faust_realtime_server.py > "$FAUST_MCP_DIR/realtime_server.log" 2>&1 &
+            BROWSER_UI_PORT=$FAUST_UI_PORT \
+            python faust_browser_server.py > "$FAUST_MCP_DIR/browser_server.log" 2>&1 &
 
             FAUST_REALTIME_PID=$!
 
@@ -186,21 +185,21 @@ else
             done
 
             if check_port $FAUST_REALTIME_PORT; then
-                echo -e "${GREEN}  ✓ faust realtime server started (PID: $FAUST_REALTIME_PID)${NC}"
-                echo -e "${GREEN}  ✓ faust-ui available at http://localhost:$FAUST_UI_PORT/${NC}"
+                echo -e "${GREEN}  ✓ faust browser server started (PID: $FAUST_REALTIME_PID)${NC}"
+                echo -e "${GREEN}  ✓ Browser UI at http://localhost:$FAUST_UI_PORT/ (open & click Unlock Audio)${NC}"
                 FAUST_REALTIME_RUNNING=true
             else
-                echo -e "${RED}  ✗ Failed to start realtime server${NC}"
-                echo "    Check log: $FAUST_MCP_DIR/realtime_server.log"
+                echo -e "${RED}  ✗ Failed to start browser server${NC}"
+                echo "    Check log: $FAUST_MCP_DIR/browser_server.log"
                 FAUST_REALTIME_PID=""
             fi
         else
-            echo -e "${YELLOW}  ! node-web-audio-api not built${NC}"
-            echo "    Run: cd $WEBAUDIO_DIR && npm install && npm run build"
+            echo -e "${YELLOW}  ! faust-mcp venv not found${NC}"
+            echo "    Run: cd $FAUST_MCP_DIR && python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt"
         fi
     else
-        echo -e "${YELLOW}  ! Realtime server not available${NC}"
-        echo "    Run: cd $FAUST_MCP_DIR && git submodule update --init --recursive"
+        echo -e "${YELLOW}  ! Browser server not available${NC}"
+        echo "    Update faust-mcp: cd $FAUST_MCP_DIR && git pull origin main"
     fi
 fi
 
@@ -243,9 +242,9 @@ if [ "$FAUST_MCP_RUNNING" = true ] && [ "$FAUST_REALTIME_RUNNING" = true ]; then
     echo -e "${GREEN}║                     All Services Started                     ║${NC}"
     echo -e "${GREEN}╠══════════════════════════════════════════════════════════════╣${NC}"
     print_box_line "${GREEN}" "Streamlit App:    http://localhost:$STREAMLIT_PORT"
-    print_box_line "${GREEN}" "FAUST Analysis:   http://localhost:$FAUST_MCP_PORT/sse (offline)"
-    print_box_line "${GREEN}" "FAUST Realtime:   http://localhost:$FAUST_REALTIME_PORT/sse (live audio)"
-    print_box_line "${GREEN}" "FAUST UI:         http://localhost:$FAUST_UI_PORT/ (param sliders)"
+    print_box_line "${GREEN}" "FAUST Analysis:   http://localhost:$FAUST_MCP_PORT/sse"
+    print_box_line "${GREEN}" "FAUST Realtime:   http://localhost:$FAUST_REALTIME_PORT/sse"
+    print_box_line "${GREEN}" "FAUST Browser UI: http://localhost:$FAUST_UI_PORT/"
     print_box_line "${GREEN}" "Ollama API:       http://localhost:11434"
     echo -e "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
 elif [ "$FAUST_MCP_RUNNING" = true ]; then
